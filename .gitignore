@@ -1,0 +1,10 @@
+# PDFs (copyrighted papers)
+*.pdf
+
+# R session files
+.RData
+.Rhistory
+.Rproj.user/
+
+# Claude internal
+.claude/
