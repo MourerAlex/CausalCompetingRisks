@@ -1,0 +1,7 @@
+^dev$
+^\.claude$
+^\.Rhistory$
+^\.RData$
+^.*\.pdf$
+^\.Rproj\.user$
+^LICENSE\.md$

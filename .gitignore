@@ -8,3 +8,15 @@
 
 # Claude internal
 .claude/
+
+# R package build artifacts
+*.Rcheck/
+*.tar.gz
+src/*.o
+src/*.so
+src/*.dll
+inst/doc/
+
+# OS files
+.DS_Store
+Thumbs.db
