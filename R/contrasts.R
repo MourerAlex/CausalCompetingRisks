@@ -1,93 +1,151 @@
-#' Compute Causal Contrasts
+#' Compute Causal Contrasts (Long Format with Confidence Intervals)
 #'
-#' Computes risk differences and risk ratios for total, separable direct,
-#' and separable indirect effects from cumulative incidence estimates.
+#' Builds the long-format contrast table for a single estimation method by
+#' combining the method's point estimates (from the fit) with bootstrap
+#' quantiles (from a `"causal_cr_bootstrap"` object). Used internally by
+#' [contrast()].
 #'
-#' @param cumulative_incidence Data frame with columns `k`, `arm_11`,
-#'   `arm_00`, `arm_10`.
-#' @param eval_times Numeric vector or NULL. Time points at which to evaluate
-#'   contrasts. NULL = all time points.
+#' @param fit A `"separable_effects"` object.
+#' @param method Character (length 1). Which method to extract from
+#'   `fit$cumulative_incidence` and `ci$replicates`. One of the names in
+#'   `fit$active_methods`.
+#' @param ci A `"causal_cr_bootstrap"` object from [bootstrap()].
 #'
-#' @return Data frame with columns:
+#' @return A long-format data.frame with columns:
 #'   \describe{
 #'     \item{k}{Time point.}
-#'     \item{total_rd}{Total effect risk difference: arm(1,1) - arm(0,0).}
-#'     \item{total_rr}{Total effect risk ratio: arm(1,1) / arm(0,0).}
-#'     \item{sep_direct_rd}{Separable direct (A_Y) RD: arm(1,0) - arm(0,0).}
-#'     \item{sep_direct_rr}{Separable direct (A_Y) RR: arm(1,0) / arm(0,0).}
-#'     \item{sep_indirect_rd}{Separable indirect (A_D) RD: arm(1,1) - arm(1,0).}
-#'     \item{sep_indirect_rr}{Separable indirect (A_D) RR: arm(1,1) / arm(1,0).}
+#'     \item{contrast}{One of `"total"`, `"direct"`, `"indirect"`.}
+#'     \item{decomp}{`NA` for totals, `"A"` or `"B"` for direct/indirect.}
+#'     \item{measure}{`"rd"` or `"rr"`.}
+#'     \item{estimate}{Point estimate.}
+#'     \item{lower,upper}{Percentile confidence interval bounds from the
+#'       bootstrap distribution (`alpha/2` and `1 - alpha/2`).}
 #'   }
 #'
+#' Rows per time point: 10 (1 total + 2 direct + 2 indirect, each for `rd`
+#' and `rr`). For methods that do not emit `arm_01` (IPW Rep 1 and Rep 2),
+#' Decomposition B rows have `NA` estimates and CIs.
+#'
+#' @details
+#' Both decompositions share the same reference arm (`arm_00`) and the same
+#' total (`arm_11 - arm_00`). They differ only in the **intermediate arm** —
+#' the path order from `arm_00` to `arm_11`. Convention: arm `"xy"` means
+#' `(a_Y = x, a_D = y)`. `A_Y` acts on the path A → Y not through D (its
+#' effect is the *direct* effect, SDE). `A_D` acts on the path A → D → Y
+#' (its effect is the *indirect* effect, SIE).
+#'
+#' ## Decomposition A — vary `A_Y` first, then `A_D` (intermediate arm `arm_10`)
+#' - `direct  (SDE-A) = arm_10 - arm_00`  (effect of `A_Y` at `a_D = 0`)
+#' - `indirect (SIE-A) = arm_11 - arm_10` (effect of `A_D` at `a_Y = 1`)
+#'
+#' ## Decomposition B — vary `A_D` first, then `A_Y` (intermediate arm `arm_01`)
+#' - `indirect (SIE-B) = arm_01 - arm_00` (effect of `A_D` at `a_Y = 0`)
+#' - `direct  (SDE-B) = arm_11 - arm_01`  (effect of `A_Y` at `a_D = 1`)
+#'
+#' Total = `arm_11 - arm_00` is identical under both decompositions, and the
+#' algebraic identity `SDE + SIE = Total` holds for each.
+#'
+#' @references
+#' Stensrud MJ, Young JG, Didelez V, Robins JM, Hernán MA (2020).
+#' Separable effects for causal inference in the presence of competing events.
+#' *Journal of the American Statistical Association*, §3.
+#' \doi{10.1080/01621459.2020.1765783}
+#'
 #' @family internal
 #' @keywords internal
-compute_contrasts <- function(cumulative_incidence, eval_times = NULL) {
-  ci <- cumulative_incidence
+compute_contrasts <- function(fit, method, ci) {
 
-  if (!is.null(eval_times)) {
-    ci <- ci[ci$k %in% eval_times, ]
+  stopifnot(inherits(fit, "separable_effects"))
+  stopifnot(inherits(ci, "causal_cr_bootstrap"))
+
+  if (missing(method) || !is.character(method) || length(method) != 1) {
+    stop("'method' must be a single method name.", call. = FALSE)
   }
-
-  data.frame(
-    k = ci$k,
-    # Total effect: (1,1) vs (0,0)
-    total_rd = ci$arm_11 - ci$arm_00,
-    total_rr = ci$arm_11 / ci$arm_00,
-    # Separable direct (A_Y): (1,0) vs (0,0)
-    sep_direct_rd = ci$arm_10 - ci$arm_00,
-    sep_direct_rr = ci$arm_10 / ci$arm_00,
-    # Separable indirect (A_D): (1,1) vs (1,0)
-    sep_indirect_rd = ci$arm_11 - ci$arm_10,
-    sep_indirect_rr = ci$arm_11 / ci$arm_10,
-    row.names = NULL
-  )
-}
-
-
-#' Build Cumulative Incidence from Results
-#'
-#' Combines g-formula and/or IPW cumulative incidence results into a single
-#' data frame.
-#'
-#' @param results List with `$gformula` and/or `$ipw` elements.
-#' @param method Character. Estimation method used.
-#'
-#' @return Data frame with cumulative incidence.
-#'
-#' @family internal
-#' @keywords internal
-build_cumulative_incidence <- function(results, method) {
-  if (method == "gformula") {
-    results$gformula
-  } else if (method %in% c("ipw1", "ipw2")) {
-    results$ipw$cumulative_incidence
-  } else {
-    # method = "both": return g-formula as primary, IPW stored in diagnostics
-    results$gformula
-  }
-}
-
-
-#' Build Diagnostics from Results
-#'
-#' Extracts diagnostic information (weight summaries, truncated IDs) from
-#' IPW results.
-#'
-#' @param results List with estimation results.
-#' @param method Character. Estimation method used.
-#'
-#' @return List with diagnostic information, or NULL.
-#'
-#' @family internal
-#' @keywords internal
-build_diagnostics <- function(results, method) {
-  if (method %in% c("both", "ipw1", "ipw2") && !is.null(results$ipw)) {
-    list(
-      weight_summary = results$ipw$weight_summary,
-      truncated_ids = results$ipw$truncated_ids,
-      ipw_cumulative_incidence = results$ipw$cumulative_incidence
+  if (!method %in% names(fit$cumulative_incidence)) {
+    stop(
+      "Method '", method, "' not in fit. Available: ",
+      paste(names(fit$cumulative_incidence), collapse = ", "),
+      call. = FALSE
     )
-  } else {
-    NULL
   }
+  if (!method %in% dimnames(ci$replicates)[[2]]) {
+    stop(
+      "Method '", method, "' not in bootstrap replicates. Available: ",
+      paste(dimnames(ci$replicates)[[2]], collapse = ", "),
+      call. = FALSE
+    )
+  }
+
+  alpha <- ci$alpha
+  lo <- alpha / 2
+  hi <- 1 - alpha / 2
+
+  ci_df <- fit$cumulative_incidence[[method]]
+  k  <- ci_df$k
+
+  # Point estimates from fit
+  a11 <- ci_df$arm_11
+  a00 <- ci_df$arm_00
+  a10 <- ci_df$arm_10
+  a01 <- if ("arm_01" %in% names(ci_df)) ci_df$arm_01 else rep(NA_real_, length(k))
+
+  # Bootstrap replicates: [n_boot, arm, time] for this method
+  boot_m <- ci$replicates[, method, , , drop = FALSE]
+  # Squeeze method dim to get [n_boot, arm, time]
+  boot_m <- array(boot_m, dim = dim(boot_m)[c(1, 3, 4)],
+                  dimnames = list(NULL, dimnames(boot_m)[[3]], NULL))
+
+  # Per-replicate contrasts (each is [n_boot x n_times])
+  b11 <- boot_m[, "arm_11", ]
+  b00 <- boot_m[, "arm_00", ]
+  b10 <- boot_m[, "arm_10", ]
+  b01 <- boot_m[, "arm_01", ]
+
+  boot_total_rd      <- b11 - b00
+  boot_total_rr      <- b11 / b00
+  boot_direct_A_rd   <- b10 - b00
+  boot_direct_A_rr   <- b10 / b00
+  boot_indirect_A_rd <- b11 - b10
+  boot_indirect_A_rr <- b11 / b10
+  boot_direct_B_rd   <- b11 - b01
+  boot_direct_B_rr   <- b11 / b01
+  boot_indirect_B_rd <- b01 - b00
+  boot_indirect_B_rr <- b01 / b00
+
+  # Quantile helper over n_boot for each time point
+  q_at_k <- function(boot_mat, p) {
+    apply(boot_mat, 2, stats::quantile, probs = p, na.rm = TRUE)
+  }
+
+  # Build rows for one contrast entry
+  make_rows <- function(contrast_name, decomp_label, measure_label,
+                        point_est, boot_mat) {
+    data.frame(
+      k        = k,
+      contrast = contrast_name,
+      decomp   = decomp_label,
+      measure  = measure_label,
+      estimate = point_est,
+      lower    = unname(q_at_k(boot_mat, lo)),
+      upper    = unname(q_at_k(boot_mat, hi)),
+      stringsAsFactors = FALSE,
+      row.names = NULL
+    )
+  }
+
+  rbind(
+    # --- RD super-block ---
+    make_rows("total",    NA_character_, "rd", a11 - a00, boot_total_rd),
+    make_rows("direct",   "A",           "rd", a10 - a00, boot_direct_A_rd),
+    make_rows("indirect", "A",           "rd", a11 - a10, boot_indirect_A_rd),
+    make_rows("direct",   "B",           "rd", a11 - a01, boot_direct_B_rd),
+    make_rows("indirect", "B",           "rd", a01 - a00, boot_indirect_B_rd),
+
+    # --- RR super-block ---
+    make_rows("total",    NA_character_, "rr", a11 / a00, boot_total_rr),
+    make_rows("direct",   "A",           "rr", a10 / a00, boot_direct_A_rr),
+    make_rows("indirect", "A",           "rr", a11 / a10, boot_indirect_A_rr),
+    make_rows("direct",   "B",           "rr", a11 / a01, boot_direct_B_rr),
+    make_rows("indirect", "B",           "rr", a01 / a00, boot_indirect_B_rr)
+  )
 }

@@ -20,3 +20,8 @@ inst/doc/
 # OS files
 .DS_Store
 Thumbs.db
+
+# External reference R packages (recoverable from upstream)
+dev/gfoRmula-master/
+dev/gfoRmulaICE-main/
+dev/*.zip

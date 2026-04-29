@@ -1,168 +1,222 @@
-#' Bootstrap Confidence Intervals for Separable Effects
+#' Bootstrap Confidence Intervals for a separable_effects Fit
 #'
-#' Performs subject-level bootstrap resampling to construct confidence
-#' intervals for cumulative incidence curves and causal contrasts.
+#' Performs subject-level bootstrap resampling on a [separable_effects()] fit and
+#' constructs percentile confidence intervals for cumulative incidence
+#' curves. Returns a separate `"causal_cr_bootstrap"` object that pairs
+#' with the fit — pass both to plotting and contrast functions to get
+#' confidence bands.
 #'
-#' @param data,id,time,event,treatment,covariates,event_y,event_d,event_c,method,times,eval_times,formulas,extreme_weight_adjust,extreme_weight_threshold
-#'   Arguments passed through from [causal_cr()].
-#' @param n_boot Integer. Number of bootstrap replicates.
-#' @param alpha Numeric. Significance level for CIs.
+#' All estimation settings (method, treatment column, covariates, formulas,
+#' weight adjustment, censoring weights) are pulled from the fit so the
+#' bootstrap replicates re-run exactly what the point-estimate call did.
 #'
-#' @return A list with:
+#' @param fit A `"separable_effects"` object from [separable_effects()].
+#' @param n_boot Integer. Number of bootstrap replicates (default 500).
+#' @param alpha Numeric. Two-sided significance level (default 0.05 for
+#'   95% CIs).
+#'
+#' @return An S3 object of class `"causal_cr_bootstrap"`:
 #'   \describe{
-#'     \item{replicates}{3D array (n_boot x n_arms x n_times) of cumulative
-#'       incidence draws.}
-#'     \item{ci_curves}{Data frame with lower/upper CI bands on cumulative
-#'       incidence for each arm.}
-#'     \item{ci_contrasts}{Data frame with CIs on risk differences and ratios
-#'       at eval_times.}
+#'     \item{replicates}{4D array `[replicate, method, arm, time]` of
+#'       cumulative incidence estimates per bootstrap draw. Dim names on
+#'       the method and arm dimensions.}
+#'     \item{ci_curves}{Named list (one entry per method) of data.frames
+#'       with columns `k`, `{arm}_lower`, `{arm}_upper` for all 4 arms.
+#'       All methods (g-formula, IPW Rep 1, IPW Rep 2) now emit `arm_01`,
+#'       enabling Decomposition B sensitivity throughout.}
+#'     \item{n_boot, alpha}{The settings used.}
+#'     \item{fit_call}{Copy of `fit$call` for provenance.}
 #'   }
 #'
 #' @details
 #' ## Resampling scheme
-#' Subject-level: sample IDs with replacement, pull all person-time rows for
-#' each sampled ID. Duplicate IDs receive a unique suffix to avoid model
-#' confusion.
+#' Subject-level resampling with replacement. For each replicate, unique
+#' IDs are sampled with replacement; the person-time rows for each sampled
+#' ID are pulled (via a pre-split lookup) and stitched back together with
+#' unique synthetic IDs so that glm treats duplicate draws as distinct
+#' subjects.
 #'
-#' ## Per replicate
-#' 1. Resample IDs with replacement
-#' 2. Rebuild person-time data for resampled subjects
-#' 3. Re-fit all hazard models
-#' 4. Re-run g-formula and/or IPW estimation
-#' 5. Store cumulative incidence for all arms
+#' ## Estimation per replicate
+#' Calls [fit_separable_effects()] directly (not [separable_effects()]), bypassing the
+#' user-facing wrapper's validation and warning capture. Warnings during
+#' replicates are suppressed (they would otherwise spam).
 #'
 #' ## CI construction
-#' Percentile method: take `alpha/2` and `1 - alpha/2` quantiles of the
-#' bootstrap distribution at each time point.
+#' Percentile method: `alpha/2` and `1 - alpha/2` quantiles of the bootstrap
+#' distribution at each time point, computed per arm per method.
 #'
-#' @family internal
-#' @keywords internal
-bootstrap_causal_cr <- function(data, id, time, event, treatment, covariates,
-                                event_y, event_d, event_c,
-                                method, times, eval_times, formulas,
-                                extreme_weight_adjust,
-                                extreme_weight_threshold,
-                                n_boot, alpha) {
+#' ## Progress reporting
+#' For n_boot > 50: prints every 10 replicates for the first 50, then
+#' prints a time estimate for the remaining replicates (based on the first
+#' 50), then every 100 after. For n_boot <= 50: prints every 10.
+#'
+#' @seealso [separable_effects()], [fit_separable_effects()], [contrast()], [risk()]
+#'
+#' @examples
+#' \dontrun{
+#' fit <- separable_effects(pt)
+#' boot <- bootstrap(fit, n_boot = 500)
+#' plot(risk(fit), ci = boot)
+#' contrast(fit, method = "gformula", ci = boot)
+#' }
+#'
+#' @export
+bootstrap <- function(fit, n_boot = 500, alpha = 0.05) {
 
-  unique_ids <- unique(data[[id]])
+  stopifnot(inherits(fit, "separable_effects"))
+  if (!is.numeric(n_boot) || length(n_boot) != 1 || n_boot < 1 ||
+      n_boot != round(n_boot)) {
+    stop("n_boot must be a positive integer.", call. = FALSE)
+  }
+  if (!is.numeric(alpha) || length(alpha) != 1 || alpha <= 0 || alpha >= 1) {
+    stop("alpha must be in (0, 1).", call. = FALSE)
+  }
+
+  # --- Pull settings from fit ---
+  pt_data                  <- fit$person_time
+  id_col                   <- fit$id_col
+  treatment_col            <- fit$treatment_col
+  covariates_vec           <- fit$covariates
+  cut_times                <- fit$times
+  active_methods           <- fit$active_methods
+  formulas                 <- fit$formulas
+  censoring_weights        <- fit$censoring_weights
+  truncate                 <- fit$truncate
+
+  unique_ids <- unique(pt_data[[id_col]])
   n <- length(unique_ids)
 
-  # Storage
-  arm_names <- c("arm_11", "arm_00", "arm_10")
+  arm_names <- c("arm_11", "arm_00", "arm_10", "arm_01")
+  n_methods <- length(active_methods)
+  n_arms    <- length(arm_names)
+  n_times   <- length(cut_times)
 
-  # Determine number of time points from first estimation
-  prep_first <- to_person_time(
-    data, id, time, event, treatment, covariates,
-    event_y, event_d, event_c, times
-  )
-  n_times <- length(prep_first$cut_times)
+  # 4D array: [replicate, method, arm, time]
   boot_array <- array(
     NA_real_,
-    dim = c(n_boot, length(arm_names), n_times),
-    dimnames = list(NULL, arm_names, NULL)
+    dim = c(n_boot, n_methods, n_arms, n_times),
+    dimnames = list(NULL, active_methods, arm_names, NULL)
   )
 
+  # Split once for O(1) lookup inside the loop
+  pt_by_id <- split(pt_data, pt_data[[id_col]])
+
+  tic <- proc.time()[["elapsed"]]
+  estimate_announced <- FALSE
+
   for (b in seq_len(n_boot)) {
-    if (b %% 50 == 0 || b == 1) {
+
+    # Progress messages
+    if (b == 1 || (b <= 50 && b %% 10 == 0)) {
+      message("Bootstrap replicate ", b, "/", n_boot)
+    }
+    if (!estimate_announced && b == 50 && n_boot > 50) {
+      elapsed <- proc.time()[["elapsed"]] - tic
+      per_rep <- elapsed / 50
+      remaining <- (n_boot - 50) * per_rep
+      # Format helper: integer minutes + integer seconds, with min dropped
+      # when zero. "3 min 36 sec" / "45 sec".
+      fmt_duration <- function(sec) {
+        m <- as.integer(floor(sec / 60))
+        s <- as.integer(round(sec - 60 * m))
+        if (m > 0) {
+          sprintf("%d min %02d sec", m, s)
+        } else {
+          sprintf("%d sec", s)
+        }
+      }
+      message(sprintf(
+        "Bootstrap: 50 replicates done in %s. Estimated remaining: %s (%d more replicates).",
+        fmt_duration(elapsed), fmt_duration(remaining), n_boot - 50
+      ))
+      estimate_announced <- TRUE
+    }
+    if (b > 50 && b %% 100 == 0) {
       message("Bootstrap replicate ", b, "/", n_boot)
     }
 
-    # Resample IDs with replacement
+    # Resample
     sampled_ids <- sample(unique_ids, size = n, replace = TRUE)
-
-    # Build resampled dataset with unique IDs
     boot_data <- do.call(rbind, lapply(seq_along(sampled_ids), function(i) {
-      rows <- data[data[[id]] == sampled_ids[i], ]
-      rows[[id]] <- paste0(sampled_ids[i], "_", i)
+      rows <- pt_by_id[[as.character(sampled_ids[i])]]
+      rows[[id_col]] <- paste0(sampled_ids[i], "_", i)
       rows
     }))
 
-    # Re-estimate (wrapped in tryCatch for robustness)
-    result <- tryCatch({
-      prep <- to_person_time(
-        boot_data, id, time, event, treatment, covariates,
-        event_y, event_d, event_c, times
-      )
-
-      models <- fit_hazard_models(
-        prep$person_time, treatment, covariates, method, formulas
-      )
-
-      if (method %in% c("both", "gformula")) {
-        ci <- gformula_estimate(
-          prep$person_time, models, treatment, prep$cut_times
-        )
-        ci
-      } else {
-        ipw_res <- ipw_estimate(
-          prep$person_time, models, treatment, method, prep$cut_times,
-          extreme_weight_adjust, extreme_weight_threshold
-        )
-        ipw_res$cumulative_incidence
-      }
-    }, error = function(e) NULL)
+    # Re-fit and re-estimate (inner worker only; suppress warnings)
+    result <- tryCatch(
+      suppressWarnings(fit_separable_effects(
+        pt_data = boot_data,
+        id_col = id_col,
+        treatment_col = treatment_col,
+        covariates_vec = covariates_vec,
+        cut_times = cut_times,
+        active_methods = active_methods,
+        formulas = formulas,
+        censoring_weights = censoring_weights,
+        truncate = truncate
+      )),
+      error = function(e) NULL
+    )
 
     if (!is.null(result)) {
-      for (j in seq_along(arm_names)) {
-        boot_array[b, j, ] <- result[[arm_names[j]]]
+      for (m in active_methods) {
+        ci_df <- result$cumulative_incidence[[m]]
+        if (is.null(ci_df)) next
+        for (arm in arm_names) {
+          if (arm %in% names(ci_df)) {
+            boot_array[b, m, arm, ] <- ci_df[[arm]]
+          }
+        }
       }
     }
   }
 
-  # --- Percentile CIs ---
+  # --- Percentile CIs per method per arm ---
   lo <- alpha / 2
   hi <- 1 - alpha / 2
 
-  ci_curves <- data.frame(k = prep_first$cut_times)
-  for (arm in arm_names) {
-    j <- which(arm_names == arm)
-    ci_curves[[paste0(arm, "_lower")]] <- apply(
-      boot_array[, j, , drop = FALSE], 3,
-      stats::quantile, probs = lo, na.rm = TRUE
-    )
-    ci_curves[[paste0(arm, "_upper")]] <- apply(
-      boot_array[, j, , drop = FALSE], 3,
-      stats::quantile, probs = hi, na.rm = TRUE
-    )
+  ci_curves <- list()
+  for (m in active_methods) {
+    df <- data.frame(k = cut_times)
+    for (arm in arm_names) {
+      # boot_array[, m, arm, ] is [n_boot x n_times]
+      slice <- boot_array[, m, arm, , drop = FALSE]
+      lower <- apply(slice, 4, stats::quantile, probs = lo, na.rm = TRUE)
+      upper <- apply(slice, 4, stats::quantile, probs = hi, na.rm = TRUE)
+      df[[paste0(arm, "_lower")]] <- unname(lower)
+      df[[paste0(arm, "_upper")]] <- unname(upper)
+    }
+    ci_curves[[m]] <- df
   }
 
-  # --- Contrast CIs ---
-  boot_contrasts <- array(NA_real_, dim = c(n_boot, 6, n_times))
-  dimnames(boot_contrasts) <- list(
-    NULL,
-    c("total_rd", "total_rr", "sep_direct_rd", "sep_direct_rr",
-      "sep_indirect_rd", "sep_indirect_rr"),
-    NULL
+  structure(
+    list(
+      replicates = boot_array,
+      ci_curves  = ci_curves,
+      n_boot     = n_boot,
+      alpha      = alpha,
+      fit_call   = fit$call
+    ),
+    class = "causal_cr_bootstrap"
   )
+}
 
-  for (b in seq_len(n_boot)) {
-    a11 <- boot_array[b, "arm_11", ]
-    a00 <- boot_array[b, "arm_00", ]
-    a10 <- boot_array[b, "arm_10", ]
-    boot_contrasts[b, "total_rd", ] <- a11 - a00
-    boot_contrasts[b, "total_rr", ] <- a11 / a00
-    boot_contrasts[b, "sep_direct_rd", ] <- a10 - a00
-    boot_contrasts[b, "sep_direct_rr", ] <- a10 / a00
-    boot_contrasts[b, "sep_indirect_rd", ] <- a11 - a10
-    boot_contrasts[b, "sep_indirect_rr", ] <- a11 / a10
-  }
 
-  ci_contrasts <- data.frame(k = prep_first$cut_times)
-  for (cname in dimnames(boot_contrasts)[[2]]) {
-    j <- which(dimnames(boot_contrasts)[[2]] == cname)
-    ci_contrasts[[paste0(cname, "_lower")]] <- apply(
-      boot_contrasts[, j, , drop = FALSE], 3,
-      stats::quantile, probs = lo, na.rm = TRUE
-    )
-    ci_contrasts[[paste0(cname, "_upper")]] <- apply(
-      boot_contrasts[, j, , drop = FALSE], 3,
-      stats::quantile, probs = hi, na.rm = TRUE
-    )
-  }
-
-  list(
-    replicates = boot_array,
-    ci_curves = ci_curves,
-    ci_contrasts = ci_contrasts
-  )
+#' Print a causal_cr_bootstrap Object
+#'
+#' @param x A `"causal_cr_bootstrap"` object.
+#' @param ... Additional arguments (currently unused).
+#' @return Invisibly returns `x`.
+#' @export
+print.causal_cr_bootstrap <- function(x, ...) {
+  cat("Bootstrap Confidence Intervals (separable_effects)\n")
+  cat("------------------------------------------\n")
+  cat("Replicates: ", x$n_boot, "\n", sep = "")
+  cat("Significance level: ", x$alpha, " (", (1 - x$alpha) * 100, "% CIs)\n",
+      sep = "")
+  cat("Methods: ", paste(names(x$ci_curves), collapse = ", "), "\n", sep = "")
+  cat("\nUse `contrast(fit, method = '<name>', ci = <this>)` for contrast CIs,\n")
+  cat("or `plot(risk(fit), ci = <this>)` for curves with bands.\n")
+  invisible(x)
 }

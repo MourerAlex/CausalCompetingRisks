@@ -5,3 +5,4 @@
 ^.*\.pdf$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^.*\.Rproj$
