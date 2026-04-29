@@ -86,16 +86,16 @@ bootstrap <- function(fit, n_boot = 500, alpha = 0.05) {
   unique_ids <- unique(pt_data[[id_col]])
   n <- length(unique_ids)
 
-  arm_names <- c("arm_11", "arm_00", "arm_10", "arm_01")
+  arm_names_vec <- arm_names()
   n_methods <- length(active_methods)
-  n_arms    <- length(arm_names)
+  n_arms    <- length(arm_names_vec)
   n_times   <- length(cut_times)
 
   # 4D array: [replicate, method, arm, time]
   boot_array <- array(
     NA_real_,
     dim = c(n_boot, n_methods, n_arms, n_times),
-    dimnames = list(NULL, active_methods, arm_names, NULL)
+    dimnames = list(NULL, active_methods, arm_names_vec, NULL)
   )
 
   # Split once for O(1) lookup inside the loop
@@ -163,7 +163,7 @@ bootstrap <- function(fit, n_boot = 500, alpha = 0.05) {
       for (m in active_methods) {
         ci_df <- result$cumulative_incidence[[m]]
         if (is.null(ci_df)) next
-        for (arm in arm_names) {
+        for (arm in arm_names_vec) {
           if (arm %in% names(ci_df)) {
             boot_array[b, m, arm, ] <- ci_df[[arm]]
           }
@@ -179,7 +179,7 @@ bootstrap <- function(fit, n_boot = 500, alpha = 0.05) {
   ci_curves <- list()
   for (m in active_methods) {
     df <- data.frame(k = cut_times)
-    for (arm in arm_names) {
+    for (arm in arm_names_vec) {
       # boot_array[, m, arm, ] is [n_boot x n_times]
       slice <- boot_array[, m, arm, , drop = FALSE]
       lower <- apply(slice, 4, stats::quantile, probs = lo, na.rm = TRUE)

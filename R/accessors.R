@@ -1,20 +1,27 @@
 #' Extract Cumulative Incidence Curves
 #'
-#' Returns a `"separable_effects_risk"` object containing cumulative incidence
-#' estimates for each treatment arm, across all methods that were run.
-#' Optionally pairs with a bootstrap object to surface confidence bands
-#' downstream (in `plot.separable_effects_risk`).
+#' Returns a `"separable_effects_risk"` object containing cumulative
+#' incidence estimates for each treatment arm in long format. Optionally
+#' pairs with a bootstrap object to fold confidence bands into the same
+#' table.
 #'
 #' @param fit A `"separable_effects"` object from [separable_effects()].
-#' @param ci Optional. A `"separable_effects_bootstrap"` object from [bootstrap()].
-#'   When provided, its `ci_curves` are attached for plotting.
+#' @param ci Optional. A `"separable_effects_bootstrap"` object from
+#'   [bootstrap()]. When provided, the `lower` / `upper` columns of
+#'   `$risk` are populated; otherwise they are `NA_real_`.
 #'
 #' @return An S3 object of class `"separable_effects_risk"` with:
 #'   \describe{
-#'     \item{cumulative_incidence}{Named list per method of cumulative
-#'       incidence data.frames (from `fit$cumulative_incidence`).}
-#'     \item{ci_curves}{Named list per method of CI-band data.frames from
-#'       the bootstrap, or NULL if `ci` was not supplied.}
+#'     \item{risk}{Long-format data.frame, one row per
+#'       `(method, arm, k)` triple, with columns `method`, `arm`,
+#'       `a_y`, `a_d`, `k`, `value`, `lower`, `upper`. Sorted by
+#'       method, arm (per [arm_spec()] order), then time.}
+#'     \item{replicates}{4D bootstrap array (or NULL). Kept for
+#'       per-contrast CIs in [plot.separable_effects_risk()].}
+#'     \item{alpha}{Bootstrap significance level (or NULL).}
+#'     \item{person_time, id_col, treatment_col, times}{References to
+#'       the underlying fit (used by the optional risk-table panel
+#'       inside the plot method).}
 #'   }
 #'
 #' @seealso [contrast()], [diagnostic()], [plot.separable_effects_risk()],
@@ -28,23 +35,84 @@ risk <- function(fit, ci = NULL) {
   }
   structure(
     list(
-      cumulative_incidence = fit$cumulative_incidence,
-      ci_curves            = if (!is.null(ci)) ci$ci_curves else NULL,
+      risk          = build_risk_long(fit, ci),
       # Full bootstrap replicates + alpha for PROPER per-contrast CIs in
       # plot.separable_effects_risk (per-replicate difference, then quantile).
-      replicates           = if (!is.null(ci)) ci$replicates else NULL,
-      alpha                = if (!is.null(ci)) ci$alpha      else NULL,
+      replicates    = if (!is.null(ci)) ci$replicates else NULL,
+      alpha         = if (!is.null(ci)) ci$alpha      else NULL,
       # References needed for plot's risk_table option (avoids forcing
       # the user to pass `fit` again at plot time). These are R pointers,
       # not copies — no real memory overhead unless the underlying data
       # is modified.
-      person_time          = fit$person_time,
-      id_col               = fit$id_col,
-      treatment_col        = fit$treatment_col,
-      times                = fit$times
+      person_time   = fit$person_time,
+      id_col        = fit$id_col,
+      treatment_col = fit$treatment_col,
+      times         = fit$times
     ),
     class = "separable_effects_risk"
   )
+}
+
+
+#' Build the Long-Format `$risk` Data.frame
+#'
+#' Pivots `fit$cumulative_incidence` (per-method wide) and (optionally)
+#' `ci$ci_curves` (per-method wide bands) into a single long table
+#' `(method, arm, a_y, a_d, k, value, lower, upper)`. The `(a_y, a_d)`
+#' columns come from [arm_spec()].
+#'
+#' @param fit A `"separable_effects"` object.
+#' @param ci A `"separable_effects_bootstrap"` object or NULL.
+#' @return Long-format data.frame; `lower` / `upper` are `NA_real_` when
+#'   `ci` is NULL or for arms missing from a method's bands.
+#' @family internal
+#' @keywords internal
+build_risk_long <- function(fit, ci) {
+  spec <- arm_spec()
+  cum_inc_list <- fit$cumulative_incidence
+  ci_curves    <- if (!is.null(ci)) ci$ci_curves else NULL
+
+  rows <- list()
+  for (m in names(cum_inc_list)) {
+    wide <- cum_inc_list[[m]]
+    bands <- if (!is.null(ci_curves)) ci_curves[[m]] else NULL
+    for (i in seq_len(nrow(spec))) {
+      arm <- spec$name[i]
+      if (!arm %in% names(wide)) next  # method emitted a strict subset
+      lo <- if (!is.null(bands) && paste0(arm, "_lower") %in% names(bands)) {
+        bands[[paste0(arm, "_lower")]]
+      } else {
+        rep(NA_real_, length(wide$k))
+      }
+      hi <- if (!is.null(bands) && paste0(arm, "_upper") %in% names(bands)) {
+        bands[[paste0(arm, "_upper")]]
+      } else {
+        rep(NA_real_, length(wide$k))
+      }
+      rows[[length(rows) + 1L]] <- data.frame(
+        method = m,
+        arm    = arm,
+        a_y    = spec$a_y[i],
+        a_d    = spec$a_d[i],
+        k      = wide$k,
+        value  = wide[[arm]],
+        lower  = lo,
+        upper  = hi,
+        stringsAsFactors = FALSE,
+        row.names = NULL
+      )
+    }
+  }
+  if (length(rows) == 0L) {
+    return(data.frame(
+      method = character(), arm = character(),
+      a_y = integer(), a_d = integer(),
+      k = numeric(), value = numeric(),
+      lower = numeric(), upper = numeric(),
+      stringsAsFactors = FALSE
+    ))
+  }
+  do.call(rbind, rows)
 }
 
 

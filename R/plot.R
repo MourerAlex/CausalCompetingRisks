@@ -81,7 +81,7 @@ plot.separable_effects_risk <- function(x,
                                 ...) {
 
   # --- Validate method (required, no default) ---
-  avail_methods <- names(x$cumulative_incidence)
+  avail_methods <- unique(x$risk$method)
   if (missing(method)) {
     stop(
       "'method' is required. Available: ",
@@ -96,8 +96,10 @@ plot.separable_effects_risk <- function(x,
     )
   }
 
-  ci_df  <- x$cumulative_incidence[[method]]
-  ci_bands <- if (!is.null(x$ci_curves)) x$ci_curves[[method]] else NULL
+  # Long-format slice for this method: (arm, a_y, a_d, k, value, lower, upper)
+  risk_method <- x$risk[x$risk$method == method, ]
+  have_bands  <- any(!is.na(risk_method$lower)) && any(!is.na(risk_method$upper))
+
   # Full replicates slice [n_boot x n_arms x n_times] for this method, if
   # bootstrap was supplied. Used to compute PROPER contrast CIs at eval_times.
   boot_method <- if (!is.null(x$replicates) && method %in% dimnames(x$replicates)[[2]]) {
@@ -109,12 +111,14 @@ plot.separable_effects_risk <- function(x,
   alpha_val <- x$alpha  # NULL if no bootstrap
 
   # --- Validate arms ---
-  all_arms <- c("arm_11", "arm_00", "arm_10", "arm_01")
+  spec       <- arm_spec()
+  all_arms   <- spec$name
+  avail_arms <- unique(risk_method$arm)
   if (is.null(arms)) {
     # Default: 3 core arms. arm_01 is a Decomposition B sensitivity — cluttery
     # to show by default alongside the main three. User includes it
     # explicitly when they want the 4th curve.
-    arms <- intersect(c("arm_11", "arm_00", "arm_10"), names(ci_df))
+    arms <- intersect(setdiff(all_arms, "arm_01"), avail_arms)
   } else {
     bad <- setdiff(arms, all_arms)
     if (length(bad) > 0) {
@@ -122,7 +126,7 @@ plot.separable_effects_risk <- function(x,
            ". Must be subset of: ", paste(all_arms, collapse = ", "),
            call. = FALSE)
     }
-    missing_in_data <- setdiff(arms, names(ci_df))
+    missing_in_data <- setdiff(arms, avail_arms)
     if (length(missing_in_data) > 0) {
       stop("Arm(s) not present in this method's output: ",
            paste(missing_in_data, collapse = ", "),
@@ -151,18 +155,8 @@ plot.separable_effects_risk <- function(x,
   }
 
   # --- Arm palette (Okabe-Ito default, user-overridable per-arm) ---
-  default_arm_colors <- c(
-    arm_11 = "#000000",
-    arm_00 = "#0072B2",
-    arm_10 = "#009E73",
-    arm_01 = "#D55E00"
-  )
-  default_arm_labels <- c(
-    arm_11 = "(1,1) Treated",
-    arm_00 = "(0,0) Control",
-    arm_10 = "(1,0) Separable direct (A_Y)",
-    arm_01 = "(0,1) Separable direct (A_D)"
-  )
+  default_arm_colors <- stats::setNames(spec$color, spec$name)
+  default_arm_labels <- stats::setNames(spec$label, spec$name)
   if (!is.null(arm_colors)) {
     bad_c <- setdiff(names(arm_colors), names(default_arm_colors))
     if (length(bad_c) > 0) {
@@ -188,7 +182,8 @@ plot.separable_effects_risk <- function(x,
   # patchwork then aligns to the same column positions. Endpoints (0 and
   # max(cut_times)) are always included as ticks, with pretty() filling in
   # between.
-  cut_times_full <- c(0, ci_df$k)
+  k_grid <- sort(unique(risk_method$k))
+  cut_times_full <- c(0, k_grid)
   shared_x_limits <- c(0, max(cut_times_full))
   pretty_inner <- pretty(shared_x_limits, n = 5)
   pretty_inner <- pretty_inner[
@@ -196,18 +191,19 @@ plot.separable_effects_risk <- function(x,
   ]
   shared_x_ticks <- sort(unique(c(shared_x_limits, pretty_inner)))
 
-  # --- Reshape selected arms to long format ---
+  # --- Build plot data from long-format $risk slice ---
   # Prepend a (k = 0, cum_inc = 0) row per arm so curves start at the
   # origin and the x-axis can extend to 0, matching the risk-table x-axis
   # (which always starts at 0).
-  plot_data <- do.call(rbind, lapply(arms, function(a) {
-    data.frame(
-      k       = c(0, ci_df$k),
-      cum_inc = c(0, ci_df[[a]]),
-      arm     = a,
-      stringsAsFactors = FALSE
-    )
-  }))
+  body_rows <- risk_method[risk_method$arm %in% arms, c("k", "arm", "value")]
+  names(body_rows)[names(body_rows) == "value"] <- "cum_inc"
+  origin_rows <- data.frame(
+    k       = 0,
+    arm     = arms,
+    cum_inc = 0,
+    stringsAsFactors = FALSE
+  )
+  plot_data <- rbind(origin_rows, body_rows)
   plot_data$arm_label <- arm_labels[plot_data$arm]
 
   # --- Base plot ---
@@ -243,18 +239,19 @@ plot.separable_effects_risk <- function(x,
     )
 
   # --- CI ribbons when bootstrap available (step-like to match geom_step) ---
-  if (!is.null(ci_bands)) {
+  if (have_bands) {
     # Prepend (k = 0, lower = 0, upper = 0) so ribbons start at origin
     # alongside the curves.
-    ribbon_data <- do.call(rbind, lapply(arms, function(a) {
-      data.frame(
-        k     = c(0, ci_bands$k),
-        lower = c(0, ci_bands[[paste0(a, "_lower")]]),
-        upper = c(0, ci_bands[[paste0(a, "_upper")]]),
-        arm   = a,
-        stringsAsFactors = FALSE
-      )
-    }))
+    body_bands <- risk_method[risk_method$arm %in% arms,
+                              c("k", "arm", "lower", "upper")]
+    origin_bands <- data.frame(
+      k     = 0,
+      arm   = arms,
+      lower = 0,
+      upper = 0,
+      stringsAsFactors = FALSE
+    )
+    ribbon_data <- rbind(origin_bands, body_bands)
 
     # Step-transform: geom_ribbon draws linear polygons between (x, ymin, ymax)
     # points. To match the stepped cumulative incidence curves, we duplicate
@@ -298,7 +295,7 @@ plot.separable_effects_risk <- function(x,
   # --- Contrast annotations at eval_times ---
   if (!is.null(contrast_annotations) && length(eval_times) > 0) {
     annotation_df <- build_contrast_annotations(
-      ci_df, ci_bands, boot_method,
+      risk_method, have_bands, boot_method,
       contrast_annotations, eval_times, alpha_val
     )
 
@@ -497,7 +494,7 @@ build_risk_table_plot <- function(pt_data, id_col, trt_col,
 #'   `y_label`, `label`.
 #' @family internal
 #' @keywords internal
-build_contrast_annotations <- function(ci_df, ci_bands, boot_method,
+build_contrast_annotations <- function(risk_method, have_bands, boot_method,
                                        contrast_annotations, eval_times,
                                        alpha_val = NULL) {
 
@@ -512,10 +509,23 @@ build_contrast_annotations <- function(ci_df, ci_bands, boot_method,
     sep_indirect_B = c("arm_01", "arm_00")
   )
 
+  k_grid     <- sort(unique(risk_method$k))
+  avail_arms <- unique(risk_method$arm)
+
+  # Per-arm vectorised look-ups indexed by k_grid order.
+  arm_value <- function(arm_name) {
+    sub <- risk_method[risk_method$arm == arm_name, ]
+    sub$value[match(k_grid, sub$k)]
+  }
+  arm_lower <- function(arm_name) {
+    sub <- risk_method[risk_method$arm == arm_name, ]
+    sub$lower[match(k_grid, sub$k)]
+  }
+
   # --- Snap eval_times to nearest cut_time and report if snapped ---
   snap_info <- lapply(eval_times, function(et) {
-    idx <- which.min(abs(ci_df$k - et))
-    list(idx = idx, k_at = ci_df$k[idx], requested = et)
+    idx <- which.min(abs(k_grid - et))
+    list(idx = idx, k_at = k_grid[idx], requested = et)
   })
   snapped <- vapply(snap_info, function(s) {
     !isTRUE(all.equal(s$k_at, s$requested))
@@ -543,15 +553,20 @@ build_contrast_annotations <- function(ci_df, ci_bands, boot_method,
     a1 <- arms_pair[1]
     a2 <- arms_pair[2]
 
-    if (!all(arms_pair %in% names(ci_df))) next  # missing arm — skip
+    if (!all(arms_pair %in% avail_arms)) next  # missing arm — skip
+
+    a1_vals <- arm_value(a1)
+    a2_vals <- arm_value(a2)
+    a1_lows <- if (have_bands) arm_lower(a1) else NULL
+    a2_lows <- if (have_bands) arm_lower(a2) else NULL
 
     for (si in seq_along(snap_info)) {
       s <- snap_info[[si]]
       idx <- s$idx
       k_at <- s$k_at
 
-      y1 <- ci_df[[a1]][idx]
-      y2 <- ci_df[[a2]][idx]
+      y1 <- a1_vals[idx]
+      y2 <- a2_vals[idx]
       est <- y1 - y2
 
       # Proper per-contrast bootstrap CI: per-replicate difference, then
@@ -571,9 +586,9 @@ build_contrast_annotations <- function(ci_df, ci_bands, boot_method,
       # have bands), else below the lower arm curve itself. Offset downward
       # by a small fraction of the plot range so the label doesn't overlap.
       low_arm <- if (y1 < y2) a1 else a2
-      if (!is.null(ci_bands)) {
-        low_band <- ci_bands[[paste0(low_arm, "_lower")]][idx]
-        y_label <- low_band - 0.03
+      if (have_bands) {
+        low_lows <- if (low_arm == a1) a1_lows else a2_lows
+        y_label <- low_lows[idx] - 0.03
       } else {
         y_label <- min(y1, y2) - 0.03
       }

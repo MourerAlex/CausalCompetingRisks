@@ -173,36 +173,26 @@ weighted_arm_cum_inc <- function(pt_data, treatment, a_y, a_d, cut_times,
 
 #' Per-Arm CIF Dispatcher (Rep 1 or Rep 2)
 #'
-#' Loops over the four arms `(1,1)`, `(0,0)`, `(1,0)`, `(0,1)` and
-#' returns a data frame with one column per arm. `arm_01` enables
-#' Decomposition B sensitivity alongside the default Decomposition A.
+#' Iterates the arms defined by [arm_spec()] and returns a wide data
+#' frame with one column per arm. `arm_01` enables Decomposition B
+#' sensitivity alongside the default Decomposition A.
 #'
 #' @param pt_data,treatment,cut_times,id_col See [weighted_arm_cum_inc()].
 #' @param rep Integer. 1 for Rep 1, 2 for Rep 2.
-#' @return Data frame with columns `k`, `arm_11`, `arm_00`, `arm_10`,
-#'   `arm_01`.
+#' @return Data frame with columns `k` and one column per arm name in
+#'   [arm_spec()]`$name`.
 #' @keywords internal
 estimate_weighted_cum_inc <- function(pt_data, treatment, cut_times, rep,
                                        id_col) {
-  arms <- list(
-    arm_11 = c(a_y = 1, a_d = 1),
-    arm_00 = c(a_y = 0, a_d = 0),
-    arm_10 = c(a_y = 1, a_d = 0),
-    arm_01 = c(a_y = 0, a_d = 1)
-  )
-  cum_inc_list <- lapply(arms, function(arm) {
+  spec <- arm_spec()
+  cum_inc_list <- lapply(seq_len(nrow(spec)), function(i) {
     weighted_arm_cum_inc(
       pt_data, treatment,
-      a_y = arm[["a_y"]], a_d = arm[["a_d"]],
+      a_y = spec$a_y[i], a_d = spec$a_d[i],
       cut_times = cut_times, rep = rep,
       id_col = id_col
     )
   })
-  data.frame(
-    k      = cut_times,
-    arm_11 = cum_inc_list$arm_11,
-    arm_00 = cum_inc_list$arm_00,
-    arm_10 = cum_inc_list$arm_10,
-    arm_01 = cum_inc_list$arm_01
-  )
+  names(cum_inc_list) <- spec$name
+  do.call(data.frame, c(list(k = cut_times), cum_inc_list))
 }

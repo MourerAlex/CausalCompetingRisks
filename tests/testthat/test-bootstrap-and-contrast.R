@@ -155,7 +155,7 @@ test_that("contrast() for IPW has populated decomp B (IPW now emits arm_01)", {
 })
 
 
-test_that("risk() accepts optional ci arg and stores ci_curves", {
+test_that("risk() returns long-format $risk; lower/upper populated only with ci", {
   pt <- to_person_time(
     prostate_data,
     id = "id", time = "event_time", event = "event_type",
@@ -166,11 +166,16 @@ test_that("risk() accepts optional ci arg and stores ci_curves", {
   boot <- suppressMessages(suppressWarnings(bootstrap(fit, n_boot = 5)))
 
   r_no_ci <- risk(fit)
-  expect_null(r_no_ci$ci_curves)
+  expect_true(is.data.frame(r_no_ci$risk))
+  expect_named(r_no_ci$risk,
+               c("method", "arm", "a_y", "a_d", "k", "value", "lower", "upper"))
+  expect_true(all(is.na(r_no_ci$risk$lower)))
+  expect_true(all(is.na(r_no_ci$risk$upper)))
 
   r_with_ci <- risk(fit, ci = boot)
-  expect_false(is.null(r_with_ci$ci_curves))
-  expect_named(r_with_ci$ci_curves, "gformula")
+  expect_true(is.data.frame(r_with_ci$risk))
+  expect_false(all(is.na(r_with_ci$risk$lower)))
+  expect_false(all(is.na(r_with_ci$risk$upper)))
 })
 
 
