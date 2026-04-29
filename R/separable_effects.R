@@ -84,6 +84,53 @@
 #' handled by the Rep 2 weight construction and the `check_fitted_positivity()`
 #' warning system.
 #'
+#' @section IPW weight columns:
+#' The IPW pipeline writes the following per-row weight columns onto the
+#' working person-time data (available as `fit$weights$pt_data_weighted`
+#' and summarised in `diagnostic(fit)$weight_summary`). Subscripts use
+#' `j` for interval index and `k` for the index of the row.
+#'
+#' \describe{
+#'   \item{`w_cens`}{Inverse probability of remaining uncensored
+#'     through interval `k`, from the censoring-hazard model `C ~ A + L`:
+#'     \eqn{w_{cens, k} = 1 / \prod_{j \leq k} P(C_{j+1} = 0 \,|\, \text{history}_j, A, L)}.
+#'     Populated only when `ipcw = TRUE` and at least one IPW
+#'     representation is requested. Used by both IPW Rep 1 and Rep 2.}
+#'   \item{`w_a`}{Treatment (propensity) weight from the propensity
+#'     model `A ~ L`. Unstabilized:
+#'     \eqn{w_{a} = 1 / P(A = a \,|\, L)}; stabilized (when
+#'     `formulas$A_num` is provided): the marginal-over-conditional ratio.
+#'     Populated whenever any IPW method runs. Used by both Reps.}
+#'   \item{`w_d_arm_10`, `w_d_arm_01`}{D-component swap weights for
+#'     Rep 1 (D-swap representation). For arm `(a_Y, a_D)` with
+#'     `a_Y \neq a_D`, Rep 1 stands in `A = a_Y` and reweights to
+#'     swap the D-cumulative-survival ratio:
+#'     \eqn{w_{D, k}^{(a_Y, a_D)} =
+#'       \prod_{j \leq k}
+#'       P(D_{j+1} = 0 \,|\, \text{hist}_j, A = a_D) /
+#'       P(D_{j+1} = 0 \,|\, \text{hist}_j, A = a_Y)}.
+#'     `arm_10` is `(a_Y = 1, a_D = 0)`; `arm_01` is `(a_Y = 0, a_D = 1)`.
+#'     `NA_real_` on rows whose `A` does not equal the stand-in.}
+#'   \item{`w_y_arm_10`, `w_y_arm_01`}{Y-component swap weights for
+#'     Rep 2 (Y-swap representation). For arm `(a_Y, a_D)` with
+#'     `a_Y \neq a_D`, Rep 2 stands in `A = a_D` and reweights using a
+#'     hazard-ratio times lagged-cumulative-survival ratio:
+#'     \eqn{w_{Y, k}^{(a_Y, a_D)} =
+#'       \frac{P(Y_{k+1} = 1 \,|\, \text{hist}_k, A = a_Y)}{P(Y_{k+1} = 1 \,|\, \text{hist}_k, A = a_D)}
+#'       \cdot
+#'       \frac{\prod_{j < k} P(Y_{j+1} = 0 \,|\, \text{hist}_j, A = a_Y)}{\prod_{j < k} P(Y_{j+1} = 0 \,|\, \text{hist}_j, A = a_D)}}.
+#'     The denominator hazards are floored at `sqrt(.Machine$double.eps)`
+#'     to avoid `Inf`; rescued rows tend to surface as truncated weights
+#'     in `diagnostic(fit)$flagged_log` (their pre-truncation magnitude
+#'     puts them past the `truncate` percentile bounds).
+#'     `NA_real_` on rows whose `A` does not equal the stand-in.}
+#' }
+#'
+#' All four swap-weight columns and `w_cens` / `w_a` are subjected to
+#' the symmetric percentile truncation specified by the `truncate`
+#' argument (Cole & Hernán 2008 AJE) before they are multiplied into
+#' the per-arm Hajek estimator.
+#'
 #' @references
 #' Stensrud MJ, Young JG, Didelez V, Robins JM, Hernan MA (2020).
 #' \doi{10.1080/01621459.2020.1765783}
