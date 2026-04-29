@@ -157,6 +157,34 @@ separable_effects <- function(pt_data,
     if (m == "ipw") c("ipw_rep1", "ipw_rep2") else m
   }), use.names = FALSE)
 
+  # --- Validate formulas keys (typo defense) ---
+  # `formulas` is an optional named list of model-formula overrides.
+  # Valid keys: y / d / c (hazard models) and A / A_num (propensity:
+  # full and stabilization-numerator). Any other key is almost
+  # certainly a typo and would silently fall back to the default
+  # formula — error early instead.
+  valid_formula_keys <- c("y", "d", "c", "A", "A_num")
+  if (!is.null(formulas)) {
+    if (!is.list(formulas) || is.null(names(formulas)) ||
+        any(names(formulas) == "")) {
+      stop(
+        "`formulas` must be a named list (keys: ",
+        paste(valid_formula_keys, collapse = ", "), ").",
+        call. = FALSE
+      )
+    }
+    bad_keys <- setdiff(names(formulas), valid_formula_keys)
+    if (length(bad_keys) > 0) {
+      stop(
+        "Unknown formula key(s): ",
+        paste(shQuote(bad_keys), collapse = ", "),
+        ". Valid keys: ",
+        paste(shQuote(valid_formula_keys), collapse = ", "), ".",
+        call. = FALSE
+      )
+    }
+  }
+
   # --- Resolve input origin: class + attributes vs. explicit args ---
   if (inherits(pt_data, "person_time")) {
     # Case 1: data went through to_person_time() — everything is on the

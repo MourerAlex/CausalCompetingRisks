@@ -212,6 +212,42 @@ test_that("method with unknown entry errors", {
 })
 
 
+# ---- formulas validation ----
+
+test_that("formulas with unknown key errors (typo defense)", {
+  pt <- make_pt()
+  expect_error(
+    suppressWarnings(separable_effects(
+      pt, method = "gformula",
+      formulas = list(Y = y_flag ~ A_y + k)  # capital Y typo
+    )),
+    "Unknown formula key"
+  )
+})
+
+
+test_that("formulas non-named list errors", {
+  pt <- make_pt()
+  expect_error(
+    suppressWarnings(separable_effects(
+      pt, method = "gformula",
+      formulas = list(y_flag ~ A_y + k)  # unnamed
+    )),
+    "must be a named list"
+  )
+})
+
+
+test_that("formulas valid keys pass through", {
+  pt <- make_pt()
+  fit <- suppressWarnings(separable_effects(
+    pt, method = "gformula",
+    formulas = list(y = y_flag ~ A_y + k, d = d_flag ~ A_d + k)
+  ))
+  expect_s3_class(fit, "separable_effects")
+})
+
+
 # ---- model_checks slot ----
 
 test_that("model_checks slot is a list with expected structure", {
