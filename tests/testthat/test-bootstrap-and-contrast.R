@@ -142,10 +142,10 @@ test_that("contrast() for IPW has populated decomp B (IPW now emits arm_01)", {
     treatment = "A", covariates = c("normal_act"),
     event_y = 1, event_d = 2, event_c = 0, n_intervals = 4
   )
-  fit <- suppressWarnings(separable_effects(pt, method = c("ipw1")))
+  fit <- suppressWarnings(separable_effects(pt, method = c("ipw")))
   boot <- suppressMessages(suppressWarnings(bootstrap(fit, n_boot = 5)))
 
-  ctr <- contrast(fit, method = "ipw1", ci = boot)
+  ctr <- contrast(fit, method = "ipw_rep1", ci = boot)
   # Decomp B rows should now be populated (non-NA) because IPW Rep 1
   # dispatcher emits arm_01 alongside the other three arms.
   decomp_B <- ctr$contrasts[!is.na(ctr$contrasts$decomp) &

@@ -13,7 +13,7 @@ make_fit_ipw <- function() {
     treatment = "A", covariates = c("normal_act"),
     event_y = 1, event_d = 2, event_c = 0, n_intervals = 4
   )
-  suppressWarnings(separable_effects(pt, method = c("ipw1")))
+  suppressWarnings(separable_effects(pt, method = c("ipw")))
 }
 
 make_fit_gformula_only <- function() {

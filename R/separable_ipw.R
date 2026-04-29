@@ -33,7 +33,7 @@ NULL
 #' @param models List of fitted glm objects (Y, D, C hazards plus A
 #'   propensity, optionally A-numerator for stabilization).
 #' @param treatment Character. Treatment column name.
-#' @param ipw_reps Character vector. Subset of `c("ipw1", "ipw2")`
+#' @param ipw_reps Character vector. Subset of `c("ipw_rep1", "ipw_rep2")`
 #'   indicating which representation(s) to compute.
 #' @param cut_times Numeric vector. Time cut points.
 #' @param id_col Character. Subject identifier column name.
@@ -95,12 +95,12 @@ ipw_estimate <- function(pt_data,
   # 6. Dispatch per representation
   cum_inc_rep1 <- NULL
   cum_inc_rep2 <- NULL
-  if ("ipw1" %in% ipw_reps) {
+  if ("ipw_rep1" %in% ipw_reps) {
     cum_inc_rep1 <- estimate_weighted_cum_inc(
       pt_data, treatment, cut_times, rep = 1, id_col = id_col
     )
   }
-  if ("ipw2" %in% ipw_reps) {
+  if ("ipw_rep2" %in% ipw_reps) {
     cum_inc_rep2 <- estimate_weighted_cum_inc(
       pt_data, treatment, cut_times, rep = 2, id_col = id_col
     )

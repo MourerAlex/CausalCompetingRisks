@@ -17,8 +17,10 @@
 #' @param treatment Character. Column name of the binary treatment.
 #' @param covariates Character vector of baseline covariate column names.
 #' @param method Character. Estimation method: `"all"` (default — runs
-#'   g-formula + IPW Rep 1 + IPW Rep 2), or a character vector subset of
-#'   `c("gformula", "ipw1", "ipw2")`.
+#'   g-formula and IPW), or a character vector subset of
+#'   `c("gformula", "ipw")`. The token `"ipw"` is sugar that runs both
+#'   IPW representations (Rep 1 and Rep 2) — they are surfaced under the
+#'   output keys `ipw_rep1` and `ipw_rep2` for sensitivity comparison.
 #' @param formulas Named list or NULL. Override default model formulas. Names
 #'   should be `"y"`, `"d"`, and/or `"c"`.
 #' @param truncate Either `NULL` (no truncation) or a length-2 numeric
@@ -128,23 +130,32 @@ separable_effects <- function(pt_data,
   validate_input_shape(pt_data, "pt_data")
 
   # --- Normalize method into active_methods vector ---
-  valid_methods <- c("gformula", "ipw1", "ipw2")
+  # User-facing surface: c("gformula", "ipw"). The token "ipw" is sugar
+  # that expands internally to both representations: "ipw_rep1" (Rep 1,
+  # D-swap) and "ipw_rep2" (Rep 2, Y-swap). The expanded names are what
+  # the rest of the pipeline reads on `active_methods` and what the
+  # output keys are named on `cumulative_incidence`.
+  valid_user_methods <- c("gformula", "ipw")
   if (identical(method, "all")) {
-    active_methods <- valid_methods
+    user_methods <- valid_user_methods
   } else {
-    active_methods <- method
+    user_methods <- method
   }
-  if (!is.character(active_methods) ||
-      length(active_methods) < 1 ||
-      !all(active_methods %in% valid_methods)) {
+  if (!is.character(user_methods) ||
+      length(user_methods) < 1 ||
+      !all(user_methods %in% valid_user_methods)) {
     stop(
       "Unknown method entries: ",
-      paste(setdiff(active_methods, valid_methods), collapse = ", "),
+      paste(setdiff(user_methods, valid_user_methods), collapse = ", "),
       ". Must be 'all' or a character vector of any subset of: ",
-      paste(valid_methods, collapse = ", "),
+      paste(valid_user_methods, collapse = ", "),
       call. = FALSE
     )
   }
+  # Expand "ipw" -> c("ipw_rep1", "ipw_rep2") for internal dispatch.
+  active_methods <- unlist(lapply(user_methods, function(m) {
+    if (m == "ipw") c("ipw_rep1", "ipw_rep2") else m
+  }), use.names = FALSE)
 
   # --- Resolve input origin: class + attributes vs. explicit args ---
   if (inherits(pt_data, "person_time")) {
@@ -248,7 +259,7 @@ separable_effects <- function(pt_data,
 #' @param covariates_vec Character vector of covariate column names.
 #' @param cut_times Numeric vector of interval cut points.
 #' @param active_methods Character vector subset of
-#'   `c("gformula", "ipw1", "ipw2")`.
+#'   `c("gformula", "ipw_rep1", "ipw_rep2")`.
 #' @param formulas Named list or NULL. Model formula overrides.
 #' @param ipcw Logical. Whether to fit censoring model for IPW.
 #' @param truncate Either NULL or length-2 numeric percentile bounds for
@@ -290,7 +301,7 @@ fit_separable_effects <- function(pt_data,
 
   # --- Fit propensity model only when IPW will run ---
   # G-formula doesn't consume model_a; conditional fit avoids wasted work.
-  if (any(c("ipw1", "ipw2") %in% active_methods)) {
+  if (any(c("ipw_rep1", "ipw_rep2") %in% active_methods)) {
     prop <- fit_propensity(
       pt_data = pt_data,
       treatment = treatment_col,
@@ -316,7 +327,7 @@ fit_separable_effects <- function(pt_data,
     )
   }
 
-  ipw_reps <- intersect(active_methods, c("ipw1", "ipw2"))
+  ipw_reps <- intersect(active_methods, c("ipw_rep1", "ipw_rep2"))
   if (length(ipw_reps) > 0) {
     ipw_res <- ipw_estimate(
       pt_data = pt_data, models = models,
@@ -325,13 +336,13 @@ fit_separable_effects <- function(pt_data,
       truncate = truncate
     )
 
-    if ("ipw1" %in% ipw_reps &&
+    if ("ipw_rep1" %in% ipw_reps &&
         !is.null(ipw_res$cumulative_incidence_rep1)) {
-      ci_list$ipw1 <- ipw_res$cumulative_incidence_rep1
+      ci_list$ipw_rep1 <- ipw_res$cumulative_incidence_rep1
     }
-    if ("ipw2" %in% ipw_reps &&
+    if ("ipw_rep2" %in% ipw_reps &&
         !is.null(ipw_res$cumulative_incidence_rep2)) {
-      ci_list$ipw2 <- ipw_res$cumulative_incidence_rep2
+      ci_list$ipw_rep2 <- ipw_res$cumulative_incidence_rep2
     }
 
     weights_slot <- list(

@@ -10,7 +10,7 @@
 #'   model; Y and D models use `A_y` / `A_d` working copies).
 #' @param covariates Character vector. Covariate column names.
 #' @param active_methods Character vector. Subset of
-#'   `c("gformula", "ipw1", "ipw2")` indicating which methods will run.
+#'   `c("gformula", "ipw_rep1", "ipw_rep2")` indicating which methods will run.
 #'   Determines which models get fit.
 #' @param formulas Named list or NULL. User-specified formulas (names `y`,
 #'   `d`, `c`). Any entry absent falls back to the default formula.
@@ -32,8 +32,8 @@
 #'
 #' ## Which models per method
 #' - `"gformula"`: model_y + model_d
-#' - `"ipw1"`: model_d + model_c
-#' - `"ipw2"`: model_y + model_c
+#' - `"ipw_rep1"`: model_d + model_c
+#' - `"ipw_rep2"`: model_y + model_c
 #'
 #' ## Treatment handling
 #' - Y-hazard model: uses `A_y` (a working-copy column on pt_data)
@@ -64,8 +64,8 @@ fit_hazard_models <- function(pt_data,
   models <- list(model_y = NULL, model_d = NULL, model_c = NULL)
   checks <- list(y = NULL, d = NULL, c = NULL)
 
-  # --- Y-hazard model (needed for gformula and ipw2) ---
-  if (any(c("gformula", "ipw2") %in% active_methods)) {
+  # --- Y-hazard model (needed for gformula and ipw_rep2) ---
+  if (any(c("gformula", "ipw_rep2") %in% active_methods)) {
     fml_y <- formulas$y %||% stats::as.formula(
       paste("y_flag ~", paste(c("A_y", time_terms, cov_terms),
                               collapse = " + "))
@@ -75,8 +75,8 @@ fit_hazard_models <- function(pt_data,
     checks$y <- fit_result$check
   }
 
-  # --- D-hazard model (needed for gformula and ipw1) ---
-  if (any(c("gformula", "ipw1") %in% active_methods)) {
+  # --- D-hazard model (needed for gformula and ipw_rep1) ---
+  if (any(c("gformula", "ipw_rep1") %in% active_methods)) {
     fml_d <- formulas$d %||% stats::as.formula(
       paste("d_flag ~", paste(c("A_d", time_terms, cov_terms),
                               collapse = " + "))
@@ -87,7 +87,7 @@ fit_hazard_models <- function(pt_data,
   }
 
   # --- Censoring model (only if IPW requested AND ipcw = TRUE) ---
-  if (any(c("ipw1", "ipw2") %in% active_methods) && ipcw) {
+  if (any(c("ipw_rep1", "ipw_rep2") %in% active_methods) && ipcw) {
     fml_c <- formulas$c %||% stats::as.formula(
       paste("c_flag ~", paste(c(treatment, time_terms, cov_terms),
                               collapse = " + "))

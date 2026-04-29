@@ -36,7 +36,7 @@ test_that("method = 'all' produces all three cumulative_incidence entries", {
   fit <- suppressWarnings(separable_effects(pt, method = "all"))
   expect_true(is.list(fit$cumulative_incidence))
   expect_setequal(names(fit$cumulative_incidence),
-                  c("gformula", "ipw1", "ipw2"))
+                  c("gformula", "ipw_rep1", "ipw_rep2"))
 })
 
 
@@ -47,17 +47,11 @@ test_that("method = 'gformula' produces only gformula entry", {
 })
 
 
-test_that("method = 'ipw1' produces only ipw1 entry", {
+test_that("method = 'ipw' produces both rep entries", {
   pt <- make_pt()
-  fit <- suppressWarnings(separable_effects(pt, method = "ipw1"))
-  expect_equal(names(fit$cumulative_incidence), "ipw1")
-})
-
-
-test_that("method = 'ipw2' produces only ipw2 entry", {
-  pt <- make_pt()
-  fit <- suppressWarnings(separable_effects(pt, method = "ipw2"))
-  expect_equal(names(fit$cumulative_incidence), "ipw2")
+  fit <- suppressWarnings(separable_effects(pt, method = "ipw"))
+  expect_setequal(names(fit$cumulative_incidence),
+                  c("ipw_rep1", "ipw_rep2"))
 })
 
 
@@ -68,7 +62,7 @@ test_that("each cumulative_incidence data.frame has k and all four arms", {
   fit <- suppressWarnings(separable_effects(pt, method = "all"))
   for (m in names(fit$cumulative_incidence)) {
     df <- fit$cumulative_incidence[[m]]
-    # All methods (g-formula, ipw1, ipw2) emit all 4 arms including arm_01
+    # All methods (g-formula, ipw_rep1, ipw_rep2) emit all 4 arms including arm_01
     # (Decomposition B sensitivity).
     expect_true(all(c("k", "arm_11", "arm_00", "arm_10", "arm_01") %in% names(df)),
                 info = paste("method:", m))
@@ -203,9 +197,9 @@ test_that("fit exposes n, times, models, call", {
 
 test_that("method accepts a character vector subset", {
   pt <- make_pt()
-  fit <- suppressWarnings(separable_effects(pt, method = c("gformula", "ipw2")))
+  fit <- suppressWarnings(separable_effects(pt, method = c("gformula", "ipw")))
   expect_setequal(names(fit$cumulative_incidence),
-                  c("gformula", "ipw2"))
+                  c("gformula", "ipw_rep1", "ipw_rep2"))
 })
 
 
