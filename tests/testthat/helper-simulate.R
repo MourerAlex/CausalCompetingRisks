@@ -79,8 +79,8 @@ simulate_separable_data <- function(n,
     for (j in seq_len(d)) {
       L_mat[, j] <- stats::rbinom(n, 1, prev_L[j])
     }
+    colnames(L_mat) <- paste0("L_", seq_len(d))
   }
-  colnames(L_mat) <- paste0("L_", seq_len(d))
 
   if (d > 0) {
     pi_a <- stats::plogis(beta_a$intercept + as.numeric(L_mat %*% beta_a$L))
