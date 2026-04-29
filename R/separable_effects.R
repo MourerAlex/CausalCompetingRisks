@@ -41,6 +41,34 @@
 #' efficiency — no redundant validation or wrapping inside the replicate
 #' loop.
 #'
+#' @section Identification:
+#' The target estimand is the cumulative incidence
+#' `P(Y^{a_Y, a_D, c_bar=0}_{K+1} = 1)` for each of the four arms
+#' `(a_Y, a_D)`. Identification under the separable-effects framework
+#' requires:
+#'
+#' \itemize{
+#'   \item The **generalized decomposition assumption (GDA)**: the
+#'     observed treatment `A` decomposes into components `A_Y` and `A_D`
+#'     that could in principle be assigned different values in a future
+#'     four-arm trial.
+#'   \item Standard causal conditions — **treatment exchangeability**
+#'     (E1, holds by design in an RCT), **censoring exchangeability**
+#'     (E2, ignorable censoring), **consistency**, and **positivity**.
+#'   \item The two **dismissible component conditions** —
+#'     **Δ1**: the cause-specific hazard of `Y` does not depend on `a_D`
+#'     given covariate history; and **Δ2**: the cause-specific hazard
+#'     of `D` does not depend on `a_Y` given covariate history.
+#' }
+#'
+#' GDA, Δ1, and Δ2 are untestable from observed data — they are causal
+#' / biological claims, not statistical properties. Run [assumptions()]
+#' on the fit to inspect the full identification block, including the
+#' two decompositions (A and B) of the total effect. A numeric isolation
+#' read-out (swap-weight ranges) is planned but currently deferred
+#' pending a math check; see `@section Isolation read-out (deferred)`
+#' on [assumptions()].
+#'
 #' @section Censoring handling:
 #' Censoring is treated differently by g-formula and IPW:
 #'
@@ -63,7 +91,7 @@
 #'
 #' @family main
 #' @seealso [to_person_time()], [bootstrap()], [risk()], [contrast()],
-#'   [diagnostic()], [fit_separable_effects()]
+#'   [diagnostic()], [assumptions()], [fit_separable_effects()]
 #'
 #' @examples
 #' \dontrun{

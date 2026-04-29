@@ -8,6 +8,16 @@
 print.separable_effects <- function(x, ...) {
   cat("Separable Effects Estimation\n")
   cat("----------------------------\n")
+
+  # One-line identification header. Surfaces the estimand framing only;
+  # the swap-weight numeric read-out is intentionally suppressed pending
+  # a math check against the Stensrud Appendix — see `@section Isolation
+  # read-out (deferred)` on [assumptions()] for context. To restore, see
+  # commit history.
+  cat("Estimand: P(Y^{a_Y, a_D, c_bar=0}_{K+1}=1)",
+      "under separable-effects identification\n")
+  cat("See `assumptions(fit)` for the full identification block.\n")
+
   cat("Method(s):", paste(names(x$cumulative_incidence), collapse = ", "), "\n")
   cat("N subjects:", x$n, "\n")
   cat("Time points:", length(x$times), "\n")
