@@ -113,7 +113,7 @@ different method subset). Separate object makes this explicit.
 - [ ] Implement `bootstrap()` as exported function taking a `fit` object.
 - [ ] Decide if `bootstrap()` re-fits on resamples (current `bootstrap_causal_cr`
       does this) or uses some Monte Carlo pool.
-- [ ] Define `"causal_cr_bootstrap"` S3 class with `print()` / `plot()` methods.
+- [ ] Define `"separable_effects_bootstrap"` S3 class with `print()` / `plot()` methods.
 
 ---
 
@@ -293,7 +293,7 @@ the "higher" level (factor levels[2], sorted max, etc.) maps to 1.
 - [ ] `risk(fit, method = NULL)` — default shows all methods stacked;
       `method = "gformula"` returns single-method view.
 - [ ] `contrast(fit, method = "gformula", ci = NULL)` — requires method arg
-      (no hidden default). If `ci` (a `causal_cr_bootstrap` object) passed,
+      (no hidden default). If `ci` (a `separable_effects_bootstrap` object) passed,
       include CI columns. If not, warn about missing uncertainty.
 - [ ] `diagnostic(fit)` — unchanged concept but reads from `fit$weights`
       (weight distributions, truncated IDs, positivity flags).
@@ -302,7 +302,7 @@ the "higher" level (factor levels[2], sorted max, etc.) maps to 1.
 
 ## Plot methods — new signatures
 
-**Purpose.** Accept an optional `ci` argument (`causal_cr_bootstrap` object)
+**Purpose.** Accept an optional `ci` argument (`separable_effects_bootstrap` object)
 to show confidence bands.
 
 **Color palette (Okabe-Ito, colorblind-safe):**
@@ -338,7 +338,7 @@ to show confidence bands.
       that contrasts / CIs require `contrast(fit, ci = bootstrap(fit))`.
 - [ ] Remove `confint.causal_cr()` — CIs belong to the bootstrap object now,
       use `confint(boot)` instead.
-- [ ] Add `print.causal_cr_bootstrap()` — n_boot, alpha, per-method arm
+- [ ] Add `print.separable_effects_bootstrap()` — n_boot, alpha, per-method arm
       summaries at eval_times.
 
 ---

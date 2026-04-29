@@ -8,12 +8,12 @@
 #' Bootstrap confidence intervals are computed separately via [bootstrap()].
 #'
 #' @param pt_data A data.frame in person-time format. Typically the output
-#'   of [to_person_time()] (class `"causal_cr_pt"`), in which case validation
+#'   of [to_person_time()] (class `"person_time"`), in which case validation
 #'   and metadata are reused. Users with existing person-time data can pass
 #'   a plain data.frame, provided it contains the columns `id`, `treatment`,
 #'   `k`, `y_flag`, `d_flag`, `c_flag` (and any covariates).
 #' @param id Character. Column name of the subject identifier. Defaults to
-#'   the value stored in `pt_data`'s attribute when class is `"causal_cr_pt"`.
+#'   the value stored in `pt_data`'s attribute when class is `"person_time"`.
 #' @param treatment Character. Column name of the binary treatment.
 #' @param covariates Character vector of baseline covariate column names.
 #' @param method Character. Estimation method: `"all"` (default — runs
@@ -119,13 +119,13 @@ separable_effects <- function(pt_data,
   }
 
   # --- Resolve input origin: class + attributes vs. explicit args ---
-  if (inherits(pt_data, "causal_cr_pt")) {
+  if (inherits(pt_data, "person_time")) {
     # Case 1: data went through to_person_time() — everything is on the
     # attributes. Passing id / treatment / covariates on top is ambiguous
     # and almost always a mistake, so we reject it.
     if (!is.null(id) || !is.null(treatment) || !is.null(covariates)) {
       stop(
-        "pt_data is a 'causal_cr_pt' (from to_person_time()). ",
+        "pt_data is a 'person_time' (from to_person_time()). ",
         "id / treatment / covariates are already stored as attributes. ",
         "Do not pass them again.",
         call. = FALSE

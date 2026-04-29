@@ -276,11 +276,11 @@ Returns a `"causal_cr_risk"` object with cumulative incidence data.
 `plot()` method produces ggplot2 cumulative incidence curves.
 
 ### `contrast(fit)`
-Returns a `"causal_cr_contrast"` object with effect estimates.
+Returns a `"separable_effects_contrast"` object with effect estimates.
 `plot()` method produces effect-over-time curves.
 
 ### `diagnostic(fit)`
-Returns a `"causal_cr_diagnostic"` object with weight summaries and isolation checks.
+Returns a `"separable_effects_diagnostic"` object with weight summaries and isolation checks.
 `plot()` method produces weight distribution plots.
 
 ---

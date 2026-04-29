@@ -179,7 +179,7 @@ contrast (total, direct_A, etc.).
 - `compute_contrasts()` (decomposition A/B)
 - `risk()`, `contrast()`, `diagnostic()` accessors
 - `bootstrap()` orchestrator
-- Full `plot.causal_cr_risk()` / `plot.causal_cr_contrast()`
+- Full `plot.causal_cr_risk()` / `plot.separable_effects_contrast()`
 - All `print.*` / `summary.*` / `confint.*` methods
 
 ---
@@ -241,8 +241,8 @@ CausalCompetingRisks
 ```
 
 S3 class design:
-- `"causal_cr_pt"` — defined in `CausalKit` (used by `to_person_time()`). Downstream packages respect the class + attributes.
-- `"causal_cr"`, `"causal_cr_risk"`, `"causal_cr_contrast"`, `"causal_cr_bootstrap"`, `"causal_cr_diagnostic"` — defined in `CausalCompetingRisks`.
+- `"person_time"` — defined in `CausalKit` (used by `to_person_time()`). Downstream packages respect the class + attributes.
+- `"causal_cr"`, `"causal_cr_risk"`, `"separable_effects_contrast"`, `"separable_effects_bootstrap"`, `"separable_effects_diagnostic"` — defined in `CausalCompetingRisks`.
 - Any methods for the `_pt` class would be defined in `CausalKit`; methods for the domain-specific classes live in the respective downstream package.
 
 **S3 gotcha:** if a generic is defined in `CausalKit` (e.g., `plot_cum_inc` as generic) and methods for it are defined in `CausalCompetingRisks`, R's S3 dispatch works but the downstream package must register the methods explicitly via `@exportS3Method`. Roxygen handles this.
@@ -290,7 +290,7 @@ Estimated effort: ~1 day of focused work if the API stays stable (no tweaks duri
 2. **Bootstrap API.** Generic `fit_fn`-parameterized in core, or framework-specific orchestration in each downstream package? (Lean: framework-specific orchestration; only `resample_subjects()` and `bootstrap_percentile_ci()` in core.)
 3. **Plot primitives granularity.** Expose `plot_cum_inc()` as a full generic, or just helper builders that downstream packages compose? (Lean: helper builders.)
 4. **Positivity threshold.** `CausalKit` ships a default `eps = 1e-6`, but downstream packages might override. Parameterize cleanly.
-5. **Person-time format.** `"causal_cr_pt"` class name is framework-neutral (good). But columns `A_y`, `A_d` are separable-effects-specific. Options:
+5. **Person-time format.** `"person_time"` class name is framework-neutral (good). But columns `A_y`, `A_d` are separable-effects-specific. Options:
    - `CausalKit` knows nothing about `A_y`/`A_d`; downstream packages add those columns after `to_person_time()`.
    - `CausalKit` provides a helper `add_working_treatment_copies(pt, treatment, names = c("A_y", "A_d"))`.
    - Current package: adds them in `to_person_time()` — but that's separable-effects-coupled. Worth revisiting when we actually split.

@@ -121,7 +121,7 @@ test_that("formulas in R/contrasts.R match the locked spec (regression on packag
 
   ci <- structure(
     list(replicates = reps, alpha = 0.05),
-    class = "causal_cr_bootstrap"
+    class = "separable_effects_bootstrap"
   )
 
   out <- compute_contrasts(fit, method = "gformula", ci = ci)
@@ -140,8 +140,8 @@ test_that("formulas in R/contrasts.R match the locked spec (regression on packag
   }
 
   expect_equal(pick("total",    NA_character_), expected$total)
-  expect_equal(pick("direct",   "A"),           expected$sde_a)
-  expect_equal(pick("indirect", "A"),           expected$sie_a)
-  expect_equal(pick("direct",   "B"),           expected$sde_b)
-  expect_equal(pick("indirect", "B"),           expected$sie_b)
+  expect_equal(pick("sep_direct",   "A"),           expected$sde_a)
+  expect_equal(pick("sep_indirect", "A"),           expected$sie_a)
+  expect_equal(pick("sep_direct",   "B"),           expected$sde_b)
+  expect_equal(pick("sep_indirect", "B"),           expected$sie_b)
 })

@@ -2,7 +2,7 @@
 #'
 #' Performs subject-level bootstrap resampling on a [separable_effects()] fit and
 #' constructs percentile confidence intervals for cumulative incidence
-#' curves. Returns a separate `"causal_cr_bootstrap"` object that pairs
+#' curves. Returns a separate `"separable_effects_bootstrap"` object that pairs
 #' with the fit — pass both to plotting and contrast functions to get
 #' confidence bands.
 #'
@@ -15,7 +15,7 @@
 #' @param alpha Numeric. Two-sided significance level (default 0.05 for
 #'   95% CIs).
 #'
-#' @return An S3 object of class `"causal_cr_bootstrap"`:
+#' @return An S3 object of class `"separable_effects_bootstrap"`:
 #'   \describe{
 #'     \item{replicates}{4D array `[replicate, method, arm, time]` of
 #'       cumulative incidence estimates per bootstrap draw. Dim names on
@@ -198,18 +198,18 @@ bootstrap <- function(fit, n_boot = 500, alpha = 0.05) {
       alpha      = alpha,
       fit_call   = fit$call
     ),
-    class = "causal_cr_bootstrap"
+    class = "separable_effects_bootstrap"
   )
 }
 
 
-#' Print a causal_cr_bootstrap Object
+#' Print a separable_effects_bootstrap Object
 #'
-#' @param x A `"causal_cr_bootstrap"` object.
+#' @param x A `"separable_effects_bootstrap"` object.
 #' @param ... Additional arguments (currently unused).
 #' @return Invisibly returns `x`.
 #' @export
-print.causal_cr_bootstrap <- function(x, ...) {
+print.separable_effects_bootstrap <- function(x, ...) {
   cat("Bootstrap Confidence Intervals (separable_effects)\n")
   cat("------------------------------------------\n")
   cat("Replicates: ", x$n_boot, "\n", sep = "")

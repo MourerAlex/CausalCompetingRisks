@@ -597,8 +597,8 @@ build_contrast_annotations <- function(ci_df, ci_bands, boot_method,
 #' Plot Effect-Over-Time Curves  (PLACEHOLDER — to be rewritten)
 #' @keywords internal
 #' @export
-plot.causal_cr_contrast <- function(x, ...) {
-  message("plot.causal_cr_contrast: rewrite pending. x$contrasts is in long format.")
+plot.separable_effects_contrast <- function(x, ...) {
+  message("plot.separable_effects_contrast: rewrite pending. x$contrasts is in long format.")
   invisible(NULL)
 }
 
@@ -606,7 +606,7 @@ plot.causal_cr_contrast <- function(x, ...) {
 #' Plot Weight Diagnostics  (PLACEHOLDER — deferred)
 #' @keywords internal
 #' @export
-plot.causal_cr_diagnostic <- function(x, ...) {
-  message("plot.causal_cr_diagnostic: not yet implemented.")
+plot.separable_effects_diagnostic <- function(x, ...) {
+  message("plot.separable_effects_diagnostic: not yet implemented.")
   invisible(NULL)
 }

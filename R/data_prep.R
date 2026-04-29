@@ -7,7 +7,7 @@
 #' interval.
 #'
 #' The returned object is a standard data.frame with two extras:
-#' an S3 class `"causal_cr_pt"` and attributes `"cut_times"` and
+#' an S3 class `"person_time"` and attributes `"cut_times"` and
 #' `"event_labels"`. When passed to [separable_effects()], these attributes are
 #' reused directly and person-time validation is skipped.
 #'
@@ -28,7 +28,7 @@
 #'   (default), `n_intervals` is used. Mutually exclusive with `n_intervals`.
 #' @param time_varying Not implemented in v1; must be NULL.
 #'
-#' @return A data.frame of class `c("causal_cr_pt", "data.frame")` in
+#' @return A data.frame of class `c("person_time", "data.frame")` in
 #'   person-time format. Attributes include `"cut_times"` (the time grid)
 #'   and `"event_labels"` (the three values mapped to Y, D, and censoring).
 #'
@@ -176,7 +176,7 @@ to_person_time <- function(data,
   attr(pt_data, "id_col") <- id
   attr(pt_data, "treatment_col") <- treatment
   attr(pt_data, "covariates") <- covariates
-  class(pt_data) <- c("causal_cr_pt", class(pt_data))
+  class(pt_data) <- c("person_time", class(pt_data))
 
   pt_data
 }

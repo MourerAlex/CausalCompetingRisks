@@ -117,7 +117,7 @@ Replace `causal_cr()` with `separable_effects()` per `dev/API_v1_LOCKED.md`.
 - [ ] `K = NULL` defaults to `max(data[[time_name]])`.
 - [ ] `censoring_weights` arg renamed to `ipcw`.
 - [ ] `extreme_weight_adjust` and `extreme_weight_threshold` removed.
-- [ ] Dual-path branch (`pt_data`/`causal_cr_pt`) removed; long-format data.frame only.
+- [ ] Dual-path branch (`pt_data`/`person_time`) removed; long-format data.frame only.
 - [ ] Warning-capture scaffolding removed (`withCallingHandlers`, `predict_with_warning`, `$warnings` slot). `warning()` calls and `$diagnostics` slot retained.
 
 ### Files
@@ -212,7 +212,7 @@ with arm strings `"11"`, `"00"`, `"10"`, `"01"`.
 ### Definition of done
 
 - [ ] `bootstrap(fit, B = 500, seed = NULL)` cluster-resamples by `id`.
-- [ ] Returns the same `causal_cr_fit` object with `$bootstrap` slot populated (no separate `causal_cr_bootstrap` class).
+- [ ] Returns the same `causal_cr_fit` object with `$bootstrap` slot populated (no separate `separable_effects_bootstrap` class).
 - [ ] `$bootstrap$replicates` is a B × K × |arms| array; `$bootstrap$ci_summary` provides percentile CIs.
 - [ ] Internal `.fit_separable_effects()` worker introduced; `bootstrap()` calls it directly per replicate (skips revalidation).
 - [ ] `tests/testthat/test-bootstrap.R`: cluster-by-id resampling, seed reproducibility, B × K × |arms| shape, CIs propagate to `summary()`.

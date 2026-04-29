@@ -159,18 +159,18 @@ print.separable_effects_risk <- function(x, ...) {
 }
 
 
-#' Print a causal_cr_contrast Object
+#' Print a separable_effects_contrast Object
 #'
 #' Shows the contrast table at the final time point (compact view), plus
 #' the method, significance level, and a pointer to the full long-format
 #' data frame.
 #'
-#' @param x A `"causal_cr_contrast"` object from [contrast()].
+#' @param x A `"separable_effects_contrast"` object from [contrast()].
 #' @param ... Additional arguments (currently unused).
 #' @return Invisibly returns `x`.
 #' @export
-print.causal_cr_contrast <- function(x, ...) {
-  cat("Causal Contrasts (causal_cr_contrast)\n")
+print.separable_effects_contrast <- function(x, ...) {
+  cat("Causal Contrasts (separable_effects_contrast)\n")
   cat("--------------------------------------\n")
   cat("Method: ", x$method, "\n", sep = "")
   cat(sprintf("Significance level: %g (%.0f%% CIs)\n\n",
@@ -195,19 +195,19 @@ print.causal_cr_contrast <- function(x, ...) {
 }
 
 
-#' Print a causal_cr_diagnostic Object
+#' Print a separable_effects_diagnostic Object
 #'
 #' Shows per-model fit diagnostics (convergence, fitted probability range,
 #' positivity violation flag) and IPW weight summary if available. Uses
 #' the `flagged_ids` / `flagged_log` fields (both truncation and trimming
 #' cases).
 #'
-#' @param x A `"causal_cr_diagnostic"` object from [diagnostic()].
+#' @param x A `"separable_effects_diagnostic"` object from [diagnostic()].
 #' @param ... Additional arguments (currently unused).
 #' @return Invisibly returns `x`.
 #' @export
-print.causal_cr_diagnostic <- function(x, ...) {
-  cat("Diagnostics (causal_cr_diagnostic)\n")
+print.separable_effects_diagnostic <- function(x, ...) {
+  cat("Diagnostics (separable_effects_diagnostic)\n")
   cat("-----------------------------------\n")
 
   # --- Model checks ---

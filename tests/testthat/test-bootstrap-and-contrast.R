@@ -45,7 +45,7 @@ test_that("separable_effects stores bootstrap-needed args on fit", {
 })
 
 
-test_that("bootstrap returns causal_cr_bootstrap with 4D replicates", {
+test_that("bootstrap returns separable_effects_bootstrap with 4D replicates", {
   pt <- to_person_time(
     prostate_data,
     id = "id", time = "event_time", event = "event_type",
@@ -60,7 +60,7 @@ test_that("bootstrap returns causal_cr_bootstrap with 4D replicates", {
   # Tiny bootstrap for speed
   boot <- suppressMessages(suppressWarnings(bootstrap(fit, n_boot = 5)))
 
-  expect_s3_class(boot, "causal_cr_bootstrap")
+  expect_s3_class(boot, "separable_effects_bootstrap")
   expect_equal(length(dim(boot$replicates)), 4)
   expect_equal(dim(boot$replicates)[1], 5)         # n_boot
   expect_equal(dim(boot$replicates)[2], 1)         # n_methods (just gformula)
@@ -118,7 +118,7 @@ test_that("contrast() returns long format with 10 rows per time point", {
 
   ctr <- contrast(fit, method = "gformula", ci = boot)
 
-  expect_s3_class(ctr, "causal_cr_contrast")
+  expect_s3_class(ctr, "separable_effects_contrast")
   expect_true(is.data.frame(ctr$contrasts))
   expect_named(ctr$contrasts,
                c("k", "contrast", "decomp", "measure",
@@ -127,7 +127,7 @@ test_that("contrast() returns long format with 10 rows per time point", {
   expect_equal(nrow(ctr$contrasts), 4 * 10)
   # Decomp values
   expect_equal(sort(unique(ctr$contrasts$contrast)),
-               c("direct", "indirect", "total"))
+               c("sep_direct", "sep_indirect", "total"))
   expect_true(all(ctr$contrasts$decomp[ctr$contrasts$contrast == "total"] |>
                     is.na()))
   expect_true(all(c("A", "B") %in% ctr$contrasts$decomp))
@@ -215,7 +215,7 @@ test_that("to_person_time errors on NULL / non-data.frame / empty input", {
 })
 
 
-test_that("separable_effects errors if id/treatment passed on a causal_cr_pt", {
+test_that("separable_effects errors if id/treatment passed on a person_time", {
   pt <- to_person_time(
     prostate_data,
     id = "id", time = "event_time", event = "event_type",

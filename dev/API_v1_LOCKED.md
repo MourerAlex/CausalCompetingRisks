@@ -89,7 +89,7 @@ A_model ~     L1 + L2           # propensity, baseline covariates only (no k)
 
 ## Return object
 
-**Class**: `"causal_cr_fit"` (S3 list).
+**Class**: `"separable_effects"` (S3 list).
 
 **Slots** (names indicative):
 ```
@@ -125,13 +125,13 @@ Arms are strings: `"11"`, `"00"`, `"10"`, `"01"` (for `(a_Y, a_D)`).
 ## Uncertainty
 
 ```r
-fit_b <- bootstrap(fit, B = 500, seed = NULL)
+fit_b <- bootstrap(fit, n_boot = 500, seed = NULL)
 ```
 
 - **Cluster-bootstrap by `id`** (always; no row-level option).
 - Refits **everything** per replicate: hazards (`Y`, `D`, optionally `C`), propensity (`A_model` if IPW), weights, truncation, CIF computation.
-- Returns the same `causal_cr_fit` object with `$bootstrap` slot populated: B × K × |arms| array + percentile summaries.
-- Default B = 500.
+- Returns the same `separable_effects` object with `$bootstrap` slot populated: n_boot × K × |arms| array + percentile summaries.
+- Default n_boot = 500.
 
 **TODO** (deferred):
 - Rare-events special case (parametric bootstrap fallback / stratified resampling). Note in roxygen as known limitation.
@@ -175,7 +175,7 @@ et al. (2020) §3.
 All produced as point estimates; CIs populated on bootstrap.
 
 ### `summary()` output contracts
-- Pre-bootstrap: arms shown with point estimates; contrasts section says *"Not computed. Effects require bootstrap for valid inference. Run: fit_b <- bootstrap(fit, B = 500)"*.
+- Pre-bootstrap: arms shown with point estimates; contrasts section says *"Not computed. Effects require bootstrap for valid inference. Run: fit_b <- bootstrap(fit, n_boot = 500)"*.
 - Post-bootstrap: contrasts shown with percentile 95% CIs.
 - Assumptions never in `print()`; always in `summary()` and `assumptions()`.
 

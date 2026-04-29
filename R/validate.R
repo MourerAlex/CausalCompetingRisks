@@ -273,7 +273,7 @@ validate_subject_level <- function(data,
 #'
 #' Checks that user-supplied person-time data (one row per subject-interval)
 #' has the structure required by [separable_effects()]. Only called when the input
-#' does NOT already come from [to_person_time()] (i.e., no `"causal_cr_pt"`
+#' does NOT already come from [to_person_time()] (i.e., no `"person_time"`
 #' class).
 #'
 #' @param pt_data A data.frame in person-time format.

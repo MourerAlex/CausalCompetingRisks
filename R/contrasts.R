@@ -2,19 +2,19 @@
 #'
 #' Builds the long-format contrast table for a single estimation method by
 #' combining the method's point estimates (from the fit) with bootstrap
-#' quantiles (from a `"causal_cr_bootstrap"` object). Used internally by
+#' quantiles (from a `"separable_effects_bootstrap"` object). Used internally by
 #' [contrast()].
 #'
 #' @param fit A `"separable_effects"` object.
 #' @param method Character (length 1). Which method to extract from
 #'   `fit$cumulative_incidence` and `ci$replicates`. One of the names in
 #'   `fit$active_methods`.
-#' @param ci A `"causal_cr_bootstrap"` object from [bootstrap()].
+#' @param ci A `"separable_effects_bootstrap"` object from [bootstrap()].
 #'
 #' @return A long-format data.frame with columns:
 #'   \describe{
 #'     \item{k}{Time point.}
-#'     \item{contrast}{One of `"total"`, `"direct"`, `"indirect"`.}
+#'     \item{contrast}{One of `"total"`, `"sep_direct"`, `"sep_indirect"`.}
 #'     \item{decomp}{`NA` for totals, `"A"` or `"B"` for direct/indirect.}
 #'     \item{measure}{`"rd"` or `"rr"`.}
 #'     \item{estimate}{Point estimate.}
@@ -56,7 +56,7 @@
 compute_contrasts <- function(fit, method, ci) {
 
   stopifnot(inherits(fit, "separable_effects"))
-  stopifnot(inherits(ci, "causal_cr_bootstrap"))
+  stopifnot(inherits(ci, "separable_effects_bootstrap"))
 
   if (missing(method) || !is.character(method) || length(method) != 1) {
     stop("'method' must be a single method name.", call. = FALSE)
@@ -136,16 +136,16 @@ compute_contrasts <- function(fit, method, ci) {
   rbind(
     # --- RD super-block ---
     make_rows("total",    NA_character_, "rd", a11 - a00, boot_total_rd),
-    make_rows("direct",   "A",           "rd", a10 - a00, boot_direct_A_rd),
-    make_rows("indirect", "A",           "rd", a11 - a10, boot_indirect_A_rd),
-    make_rows("direct",   "B",           "rd", a11 - a01, boot_direct_B_rd),
-    make_rows("indirect", "B",           "rd", a01 - a00, boot_indirect_B_rd),
+    make_rows("sep_direct",   "A",           "rd", a10 - a00, boot_direct_A_rd),
+    make_rows("sep_indirect", "A",           "rd", a11 - a10, boot_indirect_A_rd),
+    make_rows("sep_direct",   "B",           "rd", a11 - a01, boot_direct_B_rd),
+    make_rows("sep_indirect", "B",           "rd", a01 - a00, boot_indirect_B_rd),
 
     # --- RR super-block ---
     make_rows("total",    NA_character_, "rr", a11 / a00, boot_total_rr),
-    make_rows("direct",   "A",           "rr", a10 / a00, boot_direct_A_rr),
-    make_rows("indirect", "A",           "rr", a11 / a10, boot_indirect_A_rr),
-    make_rows("direct",   "B",           "rr", a11 / a01, boot_direct_B_rr),
-    make_rows("indirect", "B",           "rr", a01 / a00, boot_indirect_B_rr)
+    make_rows("sep_direct",   "A",           "rr", a10 / a00, boot_direct_A_rr),
+    make_rows("sep_indirect", "A",           "rr", a11 / a10, boot_indirect_A_rr),
+    make_rows("sep_direct",   "B",           "rr", a11 / a01, boot_direct_B_rr),
+    make_rows("sep_indirect", "B",           "rr", a01 / a00, boot_indirect_B_rr)
   )
 }

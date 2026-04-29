@@ -14,14 +14,14 @@ make_subj <- function(n = 20, seed = 42) {
 }
 
 
-test_that("returns object of class causal_cr_pt", {
+test_that("returns object of class person_time", {
   pt <- to_person_time(
     make_subj(),
     id = "id", time = "event_time", event = "event_type",
     treatment = "A", covariates = "cov1",
     event_y = 1, event_d = 2, event_c = 0
   )
-  expect_s3_class(pt, "causal_cr_pt")
+  expect_s3_class(pt, "person_time")
   expect_s3_class(pt, "data.frame")
 })
 

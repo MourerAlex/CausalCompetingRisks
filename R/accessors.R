@@ -6,7 +6,7 @@
 #' downstream (in `plot.separable_effects_risk`).
 #'
 #' @param fit A `"separable_effects"` object from [separable_effects()].
-#' @param ci Optional. A `"causal_cr_bootstrap"` object from [bootstrap()].
+#' @param ci Optional. A `"separable_effects_bootstrap"` object from [bootstrap()].
 #'   When provided, its `ci_curves` are attached for plotting.
 #'
 #' @return An S3 object of class `"separable_effects_risk"` with:
@@ -24,7 +24,7 @@
 risk <- function(fit, ci = NULL) {
   stopifnot(inherits(fit, "separable_effects"))
   if (!is.null(ci)) {
-    stopifnot(inherits(ci, "causal_cr_bootstrap"))
+    stopifnot(inherits(ci, "separable_effects_bootstrap"))
   }
   structure(
     list(
@@ -50,7 +50,7 @@ risk <- function(fit, ci = NULL) {
 
 #' Extract Causal Contrasts (Long Format with Confidence Intervals)
 #'
-#' Returns a `"causal_cr_contrast"` object with a long-format data frame
+#' Returns a `"separable_effects_contrast"` object with a long-format data frame
 #' of total, separable direct, and separable indirect effects for a single
 #' estimation method. Bootstrap confidence intervals are required — the
 #' package does not report contrasts without uncertainty.
@@ -58,9 +58,9 @@ risk <- function(fit, ci = NULL) {
 #' @param fit A `"separable_effects"` object from [separable_effects()].
 #' @param method Character (length 1). Which method's cumulative incidence
 #'   to contrast. Must be in `names(fit$cumulative_incidence)`.
-#' @param ci A `"causal_cr_bootstrap"` object from [bootstrap()]. Required.
+#' @param ci A `"separable_effects_bootstrap"` object from [bootstrap()]. Required.
 #'
-#' @return An S3 object of class `"causal_cr_contrast"` with:
+#' @return An S3 object of class `"separable_effects_contrast"` with:
 #'   \describe{
 #'     \item{contrasts}{Long-format data frame with columns `k`, `contrast`,
 #'       `decomp`, `measure`, `estimate`, `lower`, `upper`. 10 rows per
@@ -69,7 +69,7 @@ risk <- function(fit, ci = NULL) {
 #'     \item{alpha}{Significance level from the bootstrap object.}
 #'   }
 #'
-#' @seealso [risk()], [diagnostic()], [plot.causal_cr_contrast()],
+#' @seealso [risk()], [diagnostic()], [plot.separable_effects_contrast()],
 #'   [bootstrap()]
 #' @family accessors
 #' @export
@@ -84,7 +84,7 @@ contrast <- function(fit, method, ci) {
       call. = FALSE
     )
   }
-  stopifnot(inherits(ci, "causal_cr_bootstrap"))
+  stopifnot(inherits(ci, "separable_effects_bootstrap"))
 
   if (missing(method)) {
     stop(
@@ -102,21 +102,21 @@ contrast <- function(fit, method, ci) {
       method    = method,
       alpha     = ci$alpha
     ),
-    class = "causal_cr_contrast"
+    class = "separable_effects_contrast"
   )
 }
 
 
 #' Extract Diagnostics
 #'
-#' Returns a `"causal_cr_diagnostic"` object combining weight-level
+#' Returns a `"separable_effects_diagnostic"` object combining weight-level
 #' diagnostics (from IPW, when applicable) with model-level diagnostics
 #' (from all fitted hazard models). Has its own `print()` and `plot()`
 #' methods.
 #'
 #' @param fit A `"separable_effects"` object from [separable_effects()].
 #'
-#' @return An S3 object of class `"causal_cr_diagnostic"` with:
+#' @return An S3 object of class `"separable_effects_diagnostic"` with:
 #'   \describe{
 #'     \item{weight_summary}{Data frame summarizing weight distributions
 #'       (raw and truncated). NULL if no IPW method was run.}
@@ -127,7 +127,7 @@ contrast <- function(fit, method, ci) {
 #'       violation flag, captured glm warnings.}
 #'   }
 #'
-#' @seealso [risk()], [contrast()], [plot.causal_cr_diagnostic()]
+#' @seealso [risk()], [contrast()], [plot.separable_effects_diagnostic()]
 #' @family accessors
 #' @export
 diagnostic <- function(fit) {
@@ -143,5 +143,5 @@ diagnostic <- function(fit) {
     model_checks   = fit$model_checks
   )
 
-  structure(out, class = "causal_cr_diagnostic")
+  structure(out, class = "separable_effects_diagnostic")
 }

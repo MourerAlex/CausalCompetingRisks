@@ -132,5 +132,5 @@ Last `+` wins per ggplot convention; defaults are fully overridable.
 - **Subdirectories under `R/`** — CRAN-historic friction. Stay flat.
 - **Class-per-file (S4-style)** — package is functional with a single `causal_cr_fit` S3.
 - **Dependency injection (`fitter`, `predictor` callables)** — over-engineering for v1; we only ever call `glm()`. Drop.
-- **Custom person-time S3 class (`pt_data`, `causal_cr_pt`)** — locked API takes long-format data.frame directly.
+- **Custom person-time S3 class (`pt_data`, `person_time`)** — locked API takes long-format data.frame directly.
 - **`data_prep.R`** — `to_person_time()` removed; users with subject-level data convert externally (e.g. `survival::survSplit`).

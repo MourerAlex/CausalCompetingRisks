@@ -52,7 +52,7 @@ Goal: final layout matches `dev/ARCHITECTURE.md`, behavior identical.
 |---|---|
 | 2.1 | Rename `causal_cr()` → `separable_effects()` |
 | 2.2 | Replace signature with locked args |
-| 2.3 | Drop dual-path branch + `pt_data`/`causal_cr_pt` class |
+| 2.3 | Drop dual-path branch + `pt_data`/`person_time` class |
 | 2.4 | Drop `extreme_weight_*`; add `truncate = c(0.01, 0.99)` (default; `NULL` = no truncation) |
 | 2.5 | Add `stabilize`, `K`; rename `censoring_weights` → `ipcw` |
 | 2.6 | Drop warning-capture scaffolding (`withCallingHandlers`, `predict_with_warning`, `$warnings` slot); keep `warning()` calls and `$diagnostics` slot |
