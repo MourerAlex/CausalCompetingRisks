@@ -128,20 +128,28 @@ build_risk_long <- function(fit, ci) {
 #'   to contrast. Must be in `names(fit$cumulative_incidence)`.
 #' @param ci A `"separable_effects_bootstrap"` object from [bootstrap()]. Required.
 #'
+#' @param time Numeric scalar or NULL. Time point at which to compute
+#'   contrasts. NULL (default) selects the final cut time
+#'   (`max(fit$times)`). A user-supplied value is snapped to the nearest
+#'   cut time and a `message()` is emitted when snapping changes the
+#'   value.
+#'
 #' @return An S3 object of class `"separable_effects_contrast"` with:
 #'   \describe{
 #'     \item{contrasts}{Long-format data frame with columns `k`, `contrast`,
-#'       `decomp`, `measure`, `estimate`, `lower`, `upper`. 10 rows per
-#'       time point (1 total + 2 direct + 2 indirect, RD and RR each).}
+#'       `decomp`, `measure`, `estimate`, `lower`, `upper`. 10 rows
+#'       (1 total + 2 direct + 2 indirect, RD and RR each) at the
+#'       selected `k`.}
 #'     \item{method}{The method used.}
 #'     \item{alpha}{Significance level from the bootstrap object.}
+#'     \item{time}{The selected `k` (post-snap).}
 #'   }
 #'
 #' @seealso [risk()], [diagnostic()], [plot.separable_effects_contrast()],
 #'   [bootstrap()]
 #' @family accessors
 #' @export
-contrast <- function(fit, method, ci) {
+contrast <- function(fit, method, ci, time = NULL) {
   stopifnot(inherits(fit, "separable_effects"))
 
   if (missing(ci) || is.null(ci)) {
@@ -164,14 +172,46 @@ contrast <- function(fit, method, ci) {
 
   contrasts_df <- compute_contrasts(fit, method = method, ci = ci)
 
+  k_at <- snap_time(time, fit$times)
+  contrasts_df <- contrasts_df[contrasts_df$k == k_at, , drop = FALSE]
+
   structure(
     list(
       contrasts = contrasts_df,
       method    = method,
-      alpha     = ci$alpha
+      alpha     = ci$alpha,
+      time      = k_at
     ),
     class = "separable_effects_contrast"
   )
+}
+
+
+#' Snap a User-Supplied Time to the Nearest Cut Time
+#'
+#' Used by [contrast()] and [summary.separable_effects()] to interpret
+#' the optional `time` argument. NULL falls back to the final cut time;
+#' otherwise the user value is snapped to the nearest entry of
+#' `cut_times` and a `message()` is emitted when snapping changes the
+#' value.
+#'
+#' @param time NULL or a numeric scalar.
+#' @param cut_times Numeric vector of available cut times.
+#' @return A single numeric value drawn from `cut_times`.
+#' @family internal
+#' @keywords internal
+snap_time <- function(time, cut_times) {
+  if (is.null(time)) return(max(cut_times))
+  if (!is.numeric(time) || length(time) != 1L) {
+    stop("`time` must be NULL or a numeric scalar.", call. = FALSE)
+  }
+  idx <- which.min(abs(cut_times - time))
+  k_at <- cut_times[idx]
+  if (!isTRUE(all.equal(k_at, time))) {
+    message(sprintf("`time = %g` snapped to nearest cut time: %g.",
+                    time, k_at))
+  }
+  k_at
 }
 
 

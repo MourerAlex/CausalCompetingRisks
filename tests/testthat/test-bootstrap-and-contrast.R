@@ -106,7 +106,7 @@ test_that("contrast() errors without ci argument", {
 })
 
 
-test_that("contrast() returns long format with 10 rows per time point", {
+test_that("contrast() defaults to max time (10 rows: 1 total + 2 direct + 2 indirect, RD/RR)", {
   pt <- to_person_time(
     prostate_data,
     id = "id", time = "event_time", event = "event_type",
@@ -123,8 +123,11 @@ test_that("contrast() returns long format with 10 rows per time point", {
   expect_named(ctr$contrasts,
                c("k", "contrast", "decomp", "measure",
                  "estimate", "lower", "upper"))
-  # 4 time points x 10 contrast rows each
-  expect_equal(nrow(ctr$contrasts), 4 * 10)
+  # 1 time point x 10 contrast rows
+  expect_equal(nrow(ctr$contrasts), 10)
+  # Default time = max
+  expect_equal(unique(ctr$contrasts$k), max(fit$times))
+  expect_equal(ctr$time, max(fit$times))
   # Decomp values
   expect_equal(sort(unique(ctr$contrasts$contrast)),
                c("sep_direct", "sep_indirect", "total"))
@@ -132,6 +135,32 @@ test_that("contrast() returns long format with 10 rows per time point", {
                     is.na()))
   expect_true(all(c("A", "B") %in% ctr$contrasts$decomp))
   expect_equal(sort(unique(ctr$contrasts$measure)), c("rd", "rr"))
+})
+
+
+test_that("contrast() with time = <value> snaps to nearest cut and filters", {
+  pt <- to_person_time(
+    prostate_data,
+    id = "id", time = "event_time", event = "event_type",
+    treatment = "A", covariates = c("normal_act"),
+    event_y = 1, event_d = 2, event_c = 0, n_intervals = 4
+  )
+  fit <- suppressWarnings(separable_effects(pt, method = c("gformula")))
+  boot <- suppressMessages(suppressWarnings(bootstrap(fit, n_boot = 5)))
+
+  # Pick the first cut time, no snapping
+  k_target <- fit$times[1]
+  ctr <- contrast(fit, method = "gformula", ci = boot, time = k_target)
+  expect_equal(nrow(ctr$contrasts), 10)
+  expect_equal(unique(ctr$contrasts$k), k_target)
+  expect_equal(ctr$time, k_target)
+
+  # An off-cut value should snap and emit a message
+  off_cut <- mean(fit$times[1:2])
+  expect_message(
+    contrast(fit, method = "gformula", ci = boot, time = off_cut),
+    "snapped to nearest cut time"
+  )
 })
 
 

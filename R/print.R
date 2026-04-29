@@ -60,17 +60,30 @@ print.separable_effects <- function(x, ...) {
 
 #' Summary of a separable_effects Object
 #'
-#' Prints per-method cumulative incidence at the final time, a brief model
-#' checks summary, and guidance toward the proper accessors for contrasts
-#' and confidence intervals.
+#' Prints per-method cumulative incidence at the selected time, a brief
+#' model checks summary, and (when a bootstrap is supplied) the contrast
+#' table at that same time.
 #'
 #' @param object A `"separable_effects"` object.
+#' @param ci Optional. A `"separable_effects_bootstrap"` object from
+#'   [bootstrap()]. When provided, the contrast table at the selected
+#'   `time` is printed alongside the cumulative incidence summary.
+#' @param time Numeric scalar or NULL. Time point at which to summarise.
+#'   NULL (default) selects the final cut time (`max(object$times)`). A
+#'   user-supplied value is snapped to the nearest cut time and a
+#'   `message()` is emitted when snapping changes the value.
 #' @param ... Additional arguments (currently unused).
 #'
 #' @return Invisibly returns the per-method list of cumulative incidence
 #'   data frames.
 #' @export
-summary.separable_effects <- function(object, ...) {
+summary.separable_effects <- function(object, ci = NULL, time = NULL, ...) {
+  if (!is.null(ci)) {
+    stopifnot(inherits(ci, "separable_effects_bootstrap"))
+  }
+
+  k_at <- snap_time(time, object$times)
+
   cat("Separable Effects - separable_effects\n")
   cat("=============================\n\n")
   cat("Method(s):", paste(names(object$cumulative_incidence),
@@ -78,14 +91,39 @@ summary.separable_effects <- function(object, ...) {
       "| N:", object$n, "\n")
   cat("Time points:", length(object$times), "\n\n")
 
-  cat("Cumulative incidence at final time:\n")
+  cat(sprintf("Cumulative incidence at k = %g:\n", k_at))
   for (m in names(object$cumulative_incidence)) {
     df <- object$cumulative_incidence[[m]]
-    last <- df[nrow(df), ]
+    row <- df[df$k == k_at, , drop = FALSE]
+    if (nrow(row) == 0L) next
     cat(sprintf(
       "  [%s]  (1,1)=%.4f  (0,0)=%.4f  (1,0)=%.4f  (0,1)=%.4f\n",
-      m, last$arm_11, last$arm_00, last$arm_10, last$arm_01
+      m, row$arm_11, row$arm_00, row$arm_10, row$arm_01
     ))
+  }
+
+  # Contrast block (only when bootstrap is attached)
+  if (!is.null(ci)) {
+    cat(sprintf(
+      "\nContrasts at k = %g (%.0f%% CIs):\n", k_at, (1 - ci$alpha) * 100
+    ))
+    for (m in names(object$cumulative_incidence)) {
+      if (!m %in% dimnames(ci$replicates)[[2]]) next
+      ctr_full <- compute_contrasts(object, method = m, ci = ci)
+      ctr_at   <- ctr_full[ctr_full$k == k_at &
+                             ctr_full$measure == "rd", , drop = FALSE]
+      cat(sprintf("  [%s]\n", m))
+      for (i in seq_len(nrow(ctr_at))) {
+        r <- ctr_at[i, ]
+        decomp_label <- if (is.na(r$decomp)) ""
+                        else paste0(" (", r$decomp, ")")
+        cat(sprintf(
+          "    %-8s%-4s  RD = %6.3f  [%6.3f, %6.3f]\n",
+          r$contrast, decomp_label,
+          r$estimate, r$lower, r$upper
+        ))
+      }
+    }
   }
 
   # Model-checks line — report non-convergence. Positivity is a continuous
@@ -104,9 +142,12 @@ summary.separable_effects <- function(object, ...) {
     }
   }
 
-  cat("\nFor causal contrasts with confidence intervals:\n")
-  cat("  boot <- bootstrap(fit, n_boot = 500)\n")
-  cat("  contrast(fit, method = '<name>', ci = boot)\n")
+  if (is.null(ci)) {
+    cat("\nFor causal contrasts with confidence intervals:\n")
+    cat("  boot <- bootstrap(fit, n_boot = 500)\n")
+    cat("  summary(fit, ci = boot)        # contrasts at final time\n")
+    cat("  contrast(fit, method = '<name>', ci = boot)\n")
+  }
 
   invisible(object$cumulative_incidence)
 }
@@ -171,9 +212,8 @@ print.separable_effects_risk <- function(x, ...) {
 
 #' Print a separable_effects_contrast Object
 #'
-#' Shows the contrast table at the final time point (compact view), plus
-#' the method, significance level, and a pointer to the full long-format
-#' data frame.
+#' Shows the contrast table at the selected time point, plus the method
+#' and significance level.
 #'
 #' @param x A `"separable_effects_contrast"` object from [contrast()].
 #' @param ... Additional arguments (currently unused).
@@ -186,21 +226,18 @@ print.separable_effects_contrast <- function(x, ...) {
   cat(sprintf("Significance level: %g (%.0f%% CIs)\n\n",
               x$alpha, (1 - x$alpha) * 100))
 
-  # Compact view: contrasts at the final time point only
-  final_k <- max(x$contrasts$k)
-  at_final <- x$contrasts[x$contrasts$k == final_k, ]
-
-  cat(sprintf("At final time (k = %g):\n", final_k))
+  k_at <- x$time %||% max(x$contrasts$k)
+  cat(sprintf("At k = %g:\n", k_at))
   print(
-    at_final[, c("contrast", "decomp", "measure", "estimate", "lower", "upper")],
+    x$contrasts[, c("contrast", "decomp", "measure", "estimate", "lower", "upper")],
     row.names = FALSE
   )
 
   cat(sprintf(
-    "\nFull long-format data: %d rows (%d time points x 10 contrasts). Use x$contrasts.\n",
-    nrow(x$contrasts),
-    length(unique(x$contrasts$k))
+    "\n%d rows (1 time point x 10 contrasts). Pass `time = ...` to ",
+    nrow(x$contrasts)
   ))
+  cat("contrast() for a different cut time.\n")
   invisible(x)
 }
 
