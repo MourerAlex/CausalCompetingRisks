@@ -14,7 +14,7 @@
 #'   Determines which models get fit.
 #' @param formulas Named list or NULL. User-specified formulas (names `y`,
 #'   `d`, `c`). Any entry absent falls back to the default formula.
-#' @param censoring_weights Logical. When FALSE, the censoring model is not
+#' @param ipcw Logical. When FALSE, the censoring model is not
 #'   fit and `model_c` stays NULL.
 #'
 #' @return A named list with two entries:
@@ -50,7 +50,7 @@ fit_hazard_models <- function(pt_data,
                               covariates,
                               active_methods,
                               formulas,
-                              censoring_weights = TRUE) {
+                              ipcw = TRUE) {
 
   # Build default formula components
   cov_terms <- if (length(covariates) > 0) {
@@ -86,8 +86,8 @@ fit_hazard_models <- function(pt_data,
     checks$d <- fit_result$check
   }
 
-  # --- Censoring model (only if IPW requested AND censoring_weights = TRUE) ---
-  if (any(c("ipw1", "ipw2") %in% active_methods) && censoring_weights) {
+  # --- Censoring model (only if IPW requested AND ipcw = TRUE) ---
+  if (any(c("ipw1", "ipw2") %in% active_methods) && ipcw) {
     fml_c <- formulas$c %||% stats::as.formula(
       paste("c_flag ~", paste(c(treatment, time_terms, cov_terms),
                               collapse = " + "))

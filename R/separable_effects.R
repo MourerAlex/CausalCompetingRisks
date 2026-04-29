@@ -25,7 +25,7 @@
 #'   vector of percentile bounds for symmetric weight truncation
 #'   (Cole & Hernán 2008 AJE). Default `c(0.01, 0.99)`. Applied to all
 #'   source IPW weight columns (`w_cens`, `w_a`, `w_d_arm_*`, `w_y_arm_*`).
-#' @param censoring_weights Logical. Whether to fit a censoring hazard model
+#' @param ipcw Logical. Whether to fit a censoring hazard model
 #'   and apply inverse probability of censoring weights in IPW estimators.
 #'   Defaults to `TRUE`. Set `FALSE` to assume censoring is fully independent
 #'   (e.g., purely administrative) and skip the model fit. Has no effect on
@@ -75,7 +75,7 @@
 #' - **G-formula** always assumes **independent censoring given the
 #'   adjustment covariates**.
 #' - **IPW** can optionally apply inverse probability of censoring weights
-#'   (IPCW) via the `censoring_weights` argument.
+#'   (IPCW) via the `ipcw` argument.
 #'
 #' @section Positivity and zero-hazard safeguards:
 #' See [fit_separable_effects()] for detailed notes on how hazards near 0 or 1 are
@@ -120,7 +120,7 @@ separable_effects <- function(pt_data,
                       method = "all",
                       formulas = NULL,
                       truncate = c(0.01, 0.99),
-                      censoring_weights = TRUE) {
+                      ipcw = TRUE) {
 
   cl <- match.call()
 
@@ -194,7 +194,7 @@ separable_effects <- function(pt_data,
       cut_times = cut_times,
       active_methods = active_methods,
       formulas = formulas,
-      censoring_weights = censoring_weights,
+      ipcw = ipcw,
       truncate = truncate
     ),
     warning = function(w) {
@@ -224,7 +224,7 @@ separable_effects <- function(pt_data,
       treatment_col        = treatment_col,
       covariates           = covariates_vec,
       formulas             = formulas,
-      censoring_weights    = censoring_weights,
+      ipcw    = ipcw,
       truncate             = truncate,
       n                    = length(unique(pt_data[[id_col]]))
     ),
@@ -250,7 +250,7 @@ separable_effects <- function(pt_data,
 #' @param active_methods Character vector subset of
 #'   `c("gformula", "ipw1", "ipw2")`.
 #' @param formulas Named list or NULL. Model formula overrides.
-#' @param censoring_weights Logical. Whether to fit censoring model for IPW.
+#' @param ipcw Logical. Whether to fit censoring model for IPW.
 #' @param truncate Either NULL or length-2 numeric percentile bounds for
 #'   symmetric weight truncation.
 #'
@@ -272,7 +272,7 @@ fit_separable_effects <- function(pt_data,
                           cut_times,
                           active_methods,
                           formulas,
-                          censoring_weights,
+                          ipcw,
                           truncate = c(0.01, 0.99),
                           stabilize = TRUE) {
 
@@ -283,7 +283,7 @@ fit_separable_effects <- function(pt_data,
     covariates = covariates_vec,
     active_methods = active_methods,
     formulas = formulas,
-    censoring_weights = censoring_weights
+    ipcw = ipcw
   )
   models <- hazmod$models
   model_checks <- hazmod$checks

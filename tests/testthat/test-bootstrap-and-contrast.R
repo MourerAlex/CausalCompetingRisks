@@ -15,7 +15,7 @@ test_that("fit_separable_effects returns plain list (no class)", {
     cut_times = attr(pt, "cut_times"),
     active_methods = c("gformula"),
     formulas = NULL,
-    censoring_weights = TRUE,
+    ipcw = TRUE,
     truncate = c(0.01, 0.99)
   ))
 
@@ -40,7 +40,7 @@ test_that("separable_effects stores bootstrap-needed args on fit", {
   expect_equal(fit$treatment_col, "A")
   expect_equal(fit$active_methods, "gformula")
   expect_equal(fit$covariates, c("normal_act", "age_cat", "cv_hist", "hemo_bin"))
-  expect_equal(fit$censoring_weights, TRUE)
+  expect_equal(fit$ipcw, TRUE)
   expect_equal(fit$truncate, c(0.01, 0.99))
 })
 

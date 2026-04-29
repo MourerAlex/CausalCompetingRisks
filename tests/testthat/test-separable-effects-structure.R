@@ -130,18 +130,18 @@ test_that("pt_data_weighted carries hazard and cumprod columns", {
 })
 
 
-# ---- censoring_weights = FALSE ----
+# ---- ipcw = FALSE ----
 
-test_that("censoring_weights = FALSE skips model_c", {
+test_that("ipcw = FALSE skips model_c", {
   pt <- make_pt()
-  fit <- suppressWarnings(separable_effects(pt, method = "all", censoring_weights = FALSE))
+  fit <- suppressWarnings(separable_effects(pt, method = "all", ipcw = FALSE))
   expect_null(fit$models$model_c)
 })
 
 
-test_that("censoring_weights = FALSE omits w_cens columns", {
+test_that("ipcw = FALSE omits w_cens columns", {
   pt <- make_pt()
-  fit <- suppressWarnings(separable_effects(pt, method = "all", censoring_weights = FALSE))
+  fit <- suppressWarnings(separable_effects(pt, method = "all", ipcw = FALSE))
   if (!is.null(fit$weights)) {
     w <- fit$weights$pt_data_weighted
     expect_false("w_cens" %in% names(w))
@@ -249,9 +249,9 @@ test_that("gformula-only leaves model_checks$c NULL", {
 })
 
 
-test_that("censoring_weights = FALSE leaves model_checks$c NULL", {
+test_that("ipcw = FALSE leaves model_checks$c NULL", {
   pt <- make_pt()
   fit <- suppressWarnings(separable_effects(pt, method = "all",
-                                      censoring_weights = FALSE))
+                                      ipcw = FALSE))
   expect_null(fit$model_checks$c)
 })

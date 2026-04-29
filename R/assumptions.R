@@ -124,7 +124,7 @@ assumptions <- function(fit) {
       testable = "Untestable from observed data alone.",
       citation = "Stensrud et al. (2020), Section 3.3.",
       diagnostic = paste0(
-        "When `censoring_weights = TRUE`, the IPCW estimator addresses ",
+        "When `ipcw = TRUE`, the IPCW estimator addresses ",
         "this assumption. The censoring model fit is summarised in ",
         "diagnostic(fit)$model_checks$c."
       )

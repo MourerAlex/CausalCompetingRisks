@@ -80,7 +80,7 @@ bootstrap <- function(fit, n_boot = 500, alpha = 0.05) {
   cut_times                <- fit$times
   active_methods           <- fit$active_methods
   formulas                 <- fit$formulas
-  censoring_weights        <- fit$censoring_weights
+  ipcw        <- fit$ipcw
   truncate                 <- fit$truncate
 
   unique_ids <- unique(pt_data[[id_col]])
@@ -153,7 +153,7 @@ bootstrap <- function(fit, n_boot = 500, alpha = 0.05) {
         cut_times = cut_times,
         active_methods = active_methods,
         formulas = formulas,
-        censoring_weights = censoring_weights,
+        ipcw = ipcw,
         truncate = truncate
       )),
       error = function(e) NULL
